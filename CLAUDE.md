@@ -126,8 +126,12 @@ phase's open questions before writing code that depends on them.
       `~/.ssh/config`, `Host github-post-sales`, uses that key, so the remote will be
       `git@github-post-sales:DDLyzr7/<repo>.git`. GitHub allows a key on only one repo,
       and `~/.ssh/id_ed25519` belongs to `Post-Sales-Comms-Tool`.
-    - **Not pushed yet.** Waiting on the user to create the empty repo (suggested name
-      `post-sales-outreach-2026-09-10`) and add the key with write access.
+    - **Pushed 2026-09-10** to **`DDLyzr7/post-sales-outreach-2026-09-10`** (private)
+      over SSH: `git@github-post-sales:DDLyzr7/post-sales-outreach-2026-09-10.git`.
+      - GitHub had created a one-line README commit (`c127e78`). It was merged in
+        (`99ddac9`), keeping our README. Files were unchanged, and there was no force-push.
+      - Local `main` tracks `origin/main`.
+      - The key is a deploy key with write access on this repo only.
     - **Supabase:** gave the user detailed setup steps. Once `.env.local` has real keys:
       the user runs the CLI link and push (both interactive), then I run
       `db:seed-users` and `db:verify-rls`, and they paste `seed.sql` in the SQL editor
