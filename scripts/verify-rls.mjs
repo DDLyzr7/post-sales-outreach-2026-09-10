@@ -132,6 +132,26 @@ for (const expected of EXPECTED) {
     });
     check("cannot make themselves owner of an unassigned account", !!assignError,
       assignError ? assignError.message : "ASSIGNED");
+
+    // user_metadata is editable by the user; it must never grant admin or change
+    // the sending address (the 20260910000200 migration closed this).
+    await supabase.auth.updateUser({
+      data: { is_admin: true, default_role: "pm", warm_sender_address: "spoofed@example.com" },
+    });
+    const { data: profile } = await supabase
+      .from("app_user")
+      .select("is_admin, warm_sender_address")
+      .eq("id", me.user?.id)
+      .maybeSingle();
+    check("editing their own metadata does not make them admin", profile?.is_admin === false,
+      profile ? `is_admin=${profile.is_admin}` : "no profile row");
+    check("editing their own metadata does not change their sending address",
+      !!profile && profile.warm_sender_address !== "spoofed@example.com",
+      profile ? profile.warm_sender_address : "no profile row");
+    const { data: stillVisible } = await supabase.from("account").select("name");
+    check("still sees only their own accounts afterwards",
+      (stillVisible ?? []).length === expected.accounts.length, `${(stillVisible ?? []).length} account(s)`);
+    await supabase.auth.updateUser({ data: { is_admin: null, default_role: null, warm_sender_address: null } });
   }
 
   await supabase.auth.signOut();

@@ -340,7 +340,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         <li><a href="#reporting">Reporting <span class="n">5</span></a></li>
         <li><a href="#integrations">Data and integrations <span class="n">3</span></a></li>
         <li><a href="#governance">Governance <span class="n">3</span></a></li>
-        <li><a href="#decisions">Decisions and questions <span class="n">13</span></a></li>
+        <li><a href="#decisions">Decisions and questions <span class="n">14</span></a></li>
       </ol>
     </nav>
     <div class="legend">
@@ -447,7 +447,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
           <table>
             <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
             <tbody>
-              <tr data-status="built"><td class="id">AC-01</td><td class="what"><strong>Sign in</strong><span>Email and password through Supabase Auth. Four sample users: a PM, a CAL, a CSM and the post-sales lead.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">AC-01</td><td class="what"><strong>Sign in with Microsoft</strong><span>Lyzr Microsoft 365 accounts only, checked by Microsoft and again by the database. The four fictional sample users keep a password sign-in on localhost only.</span><em>Built. It switches on once the Azure and Supabase settings are added.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
               <tr data-status="built"><td class="id">AC-02</td><td class="what"><strong>Roles per account</strong><span>A person joins an account as PM, CAL or CSM, with one primary owner. The same person can hold different roles on different accounts.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
               <tr data-status="built"><td class="id">AC-03</td><td class="what"><strong>People see only their accounts</strong><span>Anyone linked to an account sees that account, its contacts and its emails, and nothing else.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
               <tr data-status="built"><td class="id">AC-04</td><td class="what"><strong>The lead sees every account</strong><span>The post-sales lead is an admin and sees all accounts without needing to be assigned.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
@@ -635,6 +635,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
             <li><span class="when">10 Sep 2026</span><strong>Collateral goes in as trackable links</strong><span>Not file attachments, so reporting can see what was opened.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Emails send from the app</strong><span>On the <span class="warm">warm</span> and <span class="cold">cold</span> paths, with the cap and opt-outs enforced.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Skott is fed through its API</strong><span>Collateral work doesn't wait on it; the connector plugs in once the docs arrive.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>Microsoft sign-in, Lyzr only</strong><span>Real users sign in with their Lyzr Microsoft account; nobody becomes the lead automatically.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Lyzr brand throughout</strong><span>The app and these documents use the colours and type from lyzr.ai/opencontroller.</span></li>
             <li><span class="when">Phase 1</span><strong>Store the full email</strong><span>The full body plus a pin to the template version it came from.</span></li>
           </ul>

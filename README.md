@@ -124,6 +124,30 @@ All four share `SEED_USER_PASSWORD`.
 | `csm@example.com` | Elena Ortiz | CSM | Northwind, Vertex, Juniper |
 | `lead@example.com` | Dana Whitfield | Post-sales lead (admin) | all eight, including the unassigned Tidewater Foods |
 
+The password form exists for these fictional users only, and only on localhost
+(`npm run dev`). Any deployed build refuses it.
+
+### Microsoft sign-in (real users)
+
+Real users sign in with their Lyzr Microsoft account. That needs three dashboard settings:
+
+1. **Azure** (Entra ID → App registrations → the app used for sign-in):
+   - Add the Web redirect URI `https://<project-ref>.supabase.co/auth/v1/callback`.
+   - Create a client secret.
+   - Add the `email` optional claim to the ID token.
+2. **Supabase → Authentication → Sign In / Providers → Azure:**
+   - Enable it with the client ID and the secret's *Value*.
+   - Set the Azure Tenant URL to `https://login.microsoftonline.com/<tenant-id>`, so only
+     Lyzr's tenant can sign in.
+   - Under **URL Configuration**, add `http://localhost:3001/**` (and your deployed URL)
+     to Redirect URLs.
+3. **Supabase → Authentication → Hooks → Before User Created:** choose Postgres and
+   `public.hook_restrict_sign_up`. It refuses any account outside the domains listed in
+   `app_policy.sign_in_rules`.
+
+Nobody becomes the post-sales lead automatically. To promote someone, run this in the SQL
+editor: `update public.app_user set is_admin = true where lower(email) = '<their email>';`
+
 ---
 
 ## The visibility model
@@ -154,6 +178,11 @@ everything* — is enforced in Postgres, not in React.
   table's own RLS still applies.
 - **UI checks are convenience only.** The Team coverage page's admin check and its
   hidden nav link are not the boundary.
+- **Access fields come only from `app_metadata`.** Users can edit their own
+  `user_metadata`, so `is_admin`, `default_role` and `warm_sender_address` are read from
+  `app_metadata` (service role only), and only when the profile is created.
+- **Only Lyzr accounts can be created.** The Before User Created hook
+  `public.hook_restrict_sign_up` checks `app_policy.sign_in_rules`.
 
 Not one query in `src/lib/db/queries.ts` filters by user id. `npm run db:verify-rls`
 demonstrates this from outside the app. It signs in as each user with the same public
@@ -163,6 +192,7 @@ key a browser holds and checks five things:
 3. An unauthenticated client sees zero rows.
 4. A non-admin cannot change lifecycle, even on their own account.
 5. A non-admin cannot make themselves an owner.
+6. Editing your own metadata cannot make you an admin or change your sending address.
 
 ---
 

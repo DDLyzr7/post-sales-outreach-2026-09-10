@@ -2,7 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
 
-const PUBLIC_PATHS = ["/login"];
+// /auth/callback must be reachable before a session exists: it is what creates one.
+const PUBLIC_PATHS = ["/login", "/auth/callback"];
 
 /**
  * Refreshes the auth cookie and gates every non-public path.

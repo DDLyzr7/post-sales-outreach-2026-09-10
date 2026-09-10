@@ -76,28 +76,28 @@ let created = 0;
 let updated = 0;
 
 for (const user of USERS) {
-  const { email, ...meta } = user;
+  const { email, full_name, title, ...trusted } = user;
+  // Name and title go in user_metadata, which the user can edit. Anything that
+  // grants access or picks a sending address goes in app_metadata, which only the
+  // service role can write; the profile trigger reads trusted fields from there.
+  const attributes = {
+    password,
+    email_confirm: true,
+    user_metadata: { full_name, title },
+    app_metadata: trusted,
+  };
   const existing = await findByEmail(email);
 
   if (existing) {
-    const { error } = await admin.auth.admin.updateUserById(existing.id, {
-      password,
-      user_metadata: meta,
-      email_confirm: true,
-    });
+    const { error } = await admin.auth.admin.updateUserById(existing.id, attributes);
     if (error) throw error;
     updated += 1;
-    console.log(`updated  ${email.padEnd(18)} ${meta.full_name}`);
+    console.log(`updated  ${email.padEnd(18)} ${full_name}`);
   } else {
-    const { error } = await admin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: meta,
-    });
+    const { error } = await admin.auth.admin.createUser({ email, ...attributes });
     if (error) throw error;
     created += 1;
-    console.log(`created  ${email.padEnd(18)} ${meta.full_name}`);
+    console.log(`created  ${email.padEnd(18)} ${full_name}`);
   }
 }
 

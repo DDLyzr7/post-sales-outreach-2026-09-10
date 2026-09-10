@@ -42,6 +42,7 @@ global broadcast.
 | 6 — global broadcast to all accounts | not started. Needs the priority rule |
 | 7 — reporting: outreach consistency, account coverage, relevant material | not started |
 | Track — integrations: Cortex sync (Helix: accounts and status; Compass: owners and account mapping), leadership enrichment | waiting on Cortex SDK docs and access |
+| P1 — Lyzr sign-in with Microsoft | built and migration pushed; waiting on the user's Azure and Supabase dashboard settings (open question 8) |
 
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
 phase's open questions before writing code that depends on them.
@@ -49,7 +50,7 @@ phase's open questions before writing code that depends on them.
 ### Verification state (2026-09-10)
 
 - **Build:** `npx tsc --noEmit`, `npx eslint .` and `npx next build` all pass. Routes:
-  `/`, `/accounts/[id]`, `/targets`, `/team`, `/login`.
+  `/`, `/accounts/[id]`, `/targets`, `/team`, `/login`, `/auth/callback`.
 - **Signed-in screens:** checked on the dev server (`:3001`) by signing in as the lead and
   as Riya and fetching each page from the server.
   - **The lead:** `/`, `/targets`, `/team` and `/accounts/[id]` all render with the right
@@ -57,18 +58,20 @@ phase's open questions before writing code that depends on them.
   - **Riya:** her dashboard shows only her 3 accounts. `/team` and another owner's
     account return 404, and her nav hides Team coverage.
   - The server log has no errors. The user hasn't clicked through in a browser yet.
-- **SQL:** all 8 SQL files (7 migrations plus the seed) parse with libpg_query, using
+- **SQL:** all 9 SQL files (8 migrations plus the seed) parse with libpg_query, using
   pglast 8.3 in a scratchpad venv. To recreate it:
   `python3 -m venv <dir> && <dir>/bin/pip install pglast`. pglast 8.4 fails to build
   on this Mac's Python 3.9, but 8.3 installs from a wheel.
 - **Live Supabase project**, created by the user in the dashboard:
-  - All 7 migrations were applied with `npx supabase db push --db-url … --yes`.
+  - All 8 migrations are applied (`npx supabase db push --db-url … --yes`).
   - `npm run db:seed-users` created the 4 users.
   - `db push --db-url … --include-seed --yes` loaded `seed.sql`
     (`supabase/config.toml` now has `[db.seed]`).
   - **`npm run db:verify-rls` passed every check:**
     - Each owner sees exactly their own accounts and contacts, can't fetch anyone
       else's, and can't change lifecycle or make themselves an owner.
+    - Editing their own metadata can't make them admin or change their sending
+      address.
     - The lead sees all 8 accounts.
     - The anon key sees nothing.
 
@@ -161,6 +164,25 @@ phase's open questions before writing code that depends on them.
     - **Screens:** the signed-in page checks passed for the lead and for Riya. The app
       runs at http://localhost:3001.
     - **P0 steps 1 and 2 are done.** Next, the user reviews Phases 1–2 in the browser.
+17. **Built Microsoft sign-in.** The user's choices: Lyzr's Microsoft 365 organisation
+    only, reuse the "Lyzr Comms Tracker" Azure app, nobody becomes the lead on first
+    sign-in, and password sign-in for the sample users on localhost only.
+    - **Found and fixed a Phase 1 privilege escalation.** The profile trigger copied
+      `is_admin`, `default_role` and `warm_sender_address` from user-editable
+      metadata, so any signed-in user could make themselves the lead. Those fields
+      now come from `app_metadata`, set only when the profile is created;
+      `seed-users` writes them there, and `verify-rls` proves it.
+    - **Migration `20260910000200_microsoft_sign_in.sql`** (the trigger fix,
+      `sign_in_rules`, `hook_restrict_sign_up`) is pushed to the live project.
+      `db:verify-rls` passes every check, including the new ones.
+    - **Login page:** "Continue with Microsoft" above the local-only sample-user form.
+      `/auth/callback` exchanges the code and sends errors back to the login page, and
+      `next` redirects stay on this site.
+    - **Watch for:** one `PGRST303 "JWT issued at future"` appeared in the dev log right
+      after a browser sign-in, and the next request worked. If it recurs, it's clock
+      skew to report to Supabase.
+    - **Not yet working end to end:** it needs the user's Azure and Supabase dashboard
+      settings (open question 8).
 
 **Priority order the user will follow:**
 
@@ -179,7 +201,8 @@ phase's open questions before writing code that depends on them.
 sync, whichever the user picks.
 
 **Waiting on the user:**
-- **Post-Sales Outreach:** review Phases 1–2 in the browser at http://localhost:3001,
+- **Post-Sales Outreach:** add the Microsoft sign-in dashboard settings (open question 8),
+  review Phases 1–2 in the browser at http://localhost:3001,
   send Skott API docs and a key, and pass on the Cortex answers from Krish (open
   question 1).
 - **Comms Tracker:**
@@ -257,6 +280,19 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
 11. **"My targets" thresholds come from policy.** Buckets read the monthly cap, the
     staleness windows and `app_policy.targeting_rules.renewal_window_days`.
     `src/lib/targeting.ts` only decides the order the rules are checked in.
+12. **Access-granting profile fields come only from `app_metadata`.**
+    `raw_user_meta_data` is editable by the user.
+    - `app.handle_new_auth_user` reads `is_admin`, `default_role` and
+      `warm_sender_address` from `raw_app_meta_data`, which only the service role can
+      write, and only when the profile is created.
+    - Never copy access or sending fields from user metadata. `db:verify-rls` checks
+      this.
+13. **Only Lyzr accounts can be created.**
+    - The Before User Created hook, `public.hook_restrict_sign_up`, checks
+      `app_policy.sign_in_rules`: Microsoft allows lyzr.com and lyzr.ai, and password
+      allows only example.com, the sample users. It fails closed.
+    - Password sign-in is refused outside `NODE_ENV=development` inside `signIn`
+      itself, not just hidden on the page.
 
 ## Layout
 
@@ -265,6 +301,8 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                         04 views · 05 RLS · 06 policy defaults
                         20260910000100 lifecycle, account_overview v2, owner functions,
                                        targeting_rules
+                        20260910000200 Microsoft sign-in: trusted profile fields,
+                                       sign-up hook, sign_in_rules
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
 scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs
@@ -275,6 +313,8 @@ src/lib/targeting.ts    My targets buckets: win back · going quiet · renewal �
                         at cap · on track
 src/lib/providers/      SendProvider + EnrichmentProvider — interfaces only, nothing calls them
 src/app/(app)/          dashboard · accounts/[id] two-pane · targets · team (+ team/actions.ts)
+src/app/auth/callback/  Microsoft sign-in return: exchanges the PKCE code, errors go to /login
+src/lib/auth.ts         password-sign-in gate (localhost only), same-site redirects, origin
 src/components/         ui · account-status-header · contact-pane · owner-forms (client) ·
                         nav-links (client)
 docs/feature-list.html  walkthrough feature list (published artifact)
@@ -319,6 +359,15 @@ same goes for `/team`'s `notFound()` for non-admins and the hidden nav link.
   `collateral` table.
 - **Lifecycle values are `existing | churned | prospect`.** A friend account is a
   prospect with `is_friend_account = true`. The flag stays because routing reads it.
+- **Sign-in is Microsoft, Lyzr accounts only** (2026-09-10).
+  - **How:** Supabase's Azure provider on the reused "Lyzr Comms Tracker" app
+    registration (client ID `eb37cade-21f4-492e-b3f2-a5656911704a`, tenant
+    `4b1018eb-9480-4542-89d0-4e6233aba226`), with the tenant URL restricted to Lyzr,
+    plus the sign-up hook.
+  - **Admins:** nobody becomes the lead on first sign-in. To promote someone, run
+    `update public.app_user set is_admin = true where lower(email) = '<email>';` in the
+    SQL editor.
+  - **Passwords:** password sign-in exists only for the sample users, on localhost.
 - **Lyzr brand throughout** (2026-09-10), taken from lyzr.ai/opencontroller:
 
   | Role | Value |
@@ -414,6 +463,20 @@ a mockup affordance, not a pattern to copy into the app.
    it in, or keep both?
 7. **Who sets lifecycle long-term.** Phase 2 makes it lead-only, plus sync jobs. Revisit
    if owners should be able to propose changes.
+8. **Finish the Microsoft sign-in setup** (the user, in two dashboards):
+   - **Azure, on the "Lyzr Comms Tracker" app registration:**
+     - Add the redirect URI `https://srfimixiduliysxngbmd.supabase.co/auth/v1/callback`.
+     - Create a client secret for Post-Sales Outreach.
+     - Add the `email` optional claim.
+   - **Supabase:**
+     - Enable the Azure provider with tenant URL
+       `https://login.microsoftonline.com/4b1018eb-9480-4542-89d0-4e6233aba226`.
+     - Add `http://localhost:3001/**` to Redirect URLs.
+     - Point the Before User Created hook at `public.hook_restrict_sign_up`.
+   - **If Microsoft says admin approval is needed,** that comes from the reused app's
+     pending tenant consent. Either get the consent granted, or register a separate
+     sign-in-only app.
+9. **Who is the real post-sales lead?** Nobody is promoted automatically.
 
 **Answered:** email content storage (full body plus template version pin). On 2026-09-10:
 build in Post-Sales Outreach, collateral as trackable links, send from the app, Skott via
