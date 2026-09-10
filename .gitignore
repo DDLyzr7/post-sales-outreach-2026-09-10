@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Separate inherited app with its own repo (DDLyzr7/Post-Sales-Comms-Tool).
 /comms-tracker/
+
+# Supabase CLI scratch files.
+/supabase/.temp/
