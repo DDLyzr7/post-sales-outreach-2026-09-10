@@ -233,6 +233,35 @@ phase's open questions before writing code that depends on them.
       `~/Desktop/Post-Sales-Outreach-Status-Report-10-Sep-2026.html`, outside the repo. It
       wraps the report in a full HTML document (doctype, head, body) so it opens in any
       browser. Regenerate it whenever the report changes.
+21. **Share versions of the status report.**
+    - **Cortex now reads "Pending"** everywhere in the report, at the user's request: the
+      phase status, the What's next label and the progress table. It replaced "When inputs
+      arrive" and "Waiting on inputs". The count label "waiting on inputs" in the key stays,
+      because it's a feature status, not the Cortex wording. Committed `b29851c`,
+      republished at the same link, and the Desktop HTML copy was regenerated.
+    - **Word file:** `~/Desktop/Post-Sales-Outreach-Status-10-Sep-2026.docx`. It holds the
+      report's content as bullet points and was made with macOS
+      `textutil -convert docx` from simple HTML. A copy-paste Slack message went to the
+      user in the chat only; it isn't saved anywhere.
+    - **PDF:** `~/Desktop/Post-Sales-Outreach-Status-Report-10-Sep-2026.pdf`, 4 A4 pages
+      with a page footer. No section breaks across pages:
+      - Page 1: title and At a glance.
+      - Page 2: phases.
+      - Page 3: the progress table.
+      - Page 4: What works today and What's next.
+    - **How the PDF is made:** `scripts/report-pdf.mjs`.
+      - It embeds the report's Google Fonts, adds print CSS (block flow, whole sections,
+        fixed table columns), and prints with headless Chrome.
+      - It then reads each page's text back through PDFKit (`osascript`), and copies the
+        PDF out only if no section is split.
+      - Run it with
+        `node scripts/report-pdf.mjs docs/status-report-2026-09-10.html <out.pdf> <scratch dir>`.
+      - For a new report, update the footer date and the section markers in the script.
+      - Headless Chrome writes the PDF but may not exit, so the script waits for the file
+        and then stops Chrome.
+      - The PDF hasn't been checked visually, because this Mac has no PDF-to-image tool.
+    - **User preference:** for documents to share, deliver the plain format asked for,
+      quickly, without extra rendering or verification steps.
 
 **Priority order the user follows, with status (2026-09-10):**
 
@@ -368,7 +397,8 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                         20260910000300 collateral search: tsvector index, search_collateral()
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
-scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs
+scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs ·
+                        report-pdf.mjs (status report to an A4 PDF, sections kept whole)
 src/lib/supabase/       server.ts (JWT-bearing) · client.ts · proxy.ts
 src/lib/db/queries.ts   all reads; no owner filtering by design
 src/lib/policy.ts       reads app_policy; resolveSendPath()
