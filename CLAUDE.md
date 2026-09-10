@@ -229,6 +229,10 @@ phase's open questions before writing code that depends on them.
       green/amber/grey status palette failed the colour-vision and chroma checks.
     - **Keep it current:** for the next report, copy the file with a new date and republish
       it. Keep its numbers in step with the feature list.
+    - **Standalone copy to send around:**
+      `~/Desktop/Post-Sales-Outreach-Status-Report-10-Sep-2026.html`, outside the repo. It
+      wraps the report in a full HTML document (doctype, head, body) so it opens in any
+      browser. Regenerate it whenever the report changes.
 
 **Priority order the user follows, with status (2026-09-10):**
 
