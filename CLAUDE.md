@@ -204,6 +204,19 @@ phase's open questions before writing code that depends on them.
     - **The status check found the Microsoft sign-in dashboard steps not done yet.** The
       Azure provider is off, and so is the sign-up hook: a non-Lyzr test account could be
       created (it was deleted). Email sign-ups stay open until the hook is on.
+19. **Status snapshot and final feature list.**
+    - **Feature list:** added "Automatic checks on GitHub" (GV-04) and "Hosted on Vercel"
+      (GV-05, the last step). It now totals **48 features: 22 built, 19 planned, 7 waiting
+      on input**, and is republished at the same link.
+    - **This file:** the Status heading and the priority table now show the status of each
+      stage, and it records where we stopped and what's next.
+    - **Git:** the Post-Sales Outreach repo is clean and in sync with GitHub; the last
+      commit before this entry is `cc2ce96`. Comms Tracker's repo still
+      holds its one uncommitted change, `next.config.ts`.
+    - **Local servers:** Comms Tracker on `:3000` is running, and Post-Sales
+      Outreach on `:3001` is running.
+    - **Next without waiting on anyone:** Phase 4 (Claude drafting) and CI. The Cortex
+      sync and the Skott feed start when their answers arrive, and Vercel comes last.
 
 **Priority order the user follows, with status (2026-09-10):**
 
