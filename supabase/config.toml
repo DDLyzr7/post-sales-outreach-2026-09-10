@@ -1,0 +1,6 @@
+# Minimal config for the Supabase CLI. This project targets a HOSTED project
+# (no Docker locally), so the CLI is used only for `link` and `db push`.
+project_id = "post-sales-outreach"
+
+[db]
+major_version = 17

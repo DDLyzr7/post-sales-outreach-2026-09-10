@@ -1,0 +1,691 @@
+<title>Post-Sales Outreach Scope</title>
+<meta name="description" content="Every feature of the post-sales outreach tool, built, next and planned, grouped for walkthrough review.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Figtree:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Lyzr brand palette and type, taken from lyzr.ai/opencontroller: parchment
+   ground, warm ink, mahogany for actions, roe for highlights, Playfair Display
+   headings over Figtree. Send path keeps its own axis - teal is warm, Lyzr
+   violet is cold - so routing never reads as a status. */
+:root {
+  --ground:       #fafaf9;
+  --surface:      #ffffff;
+  --surface-sunk: #f2ede8;
+  --ink:          #160f0a;
+  --ink-soft:     #514136;
+  --ink-muted:    #6e625a;
+  --line:         #ebe5de;
+  --line-strong:  #d9cec3;
+  --accent:       #724b4b;
+  --accent-wash:  #f3eae8;
+  --highlight:    #c96a5a;
+  --ok:           #2f7a4f;
+  --ok-wash:      #e7f2ea;
+  --warn:         #9a6410;
+  --warn-wash:    #fbf0dc;
+  --warm:         #0f6f72;
+  --warm-wash:    #dff1f1;
+  --cold:         #6e51e4;
+  --cold-wash:    #efebfd;
+  --focus:        #724b4b;
+
+  --f-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --f-body:    "Figtree", "Segoe UI", Helvetica, Arial, sans-serif;
+  --f-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:       #140f0c;
+    --surface:      #1d1612;
+    --surface-sunk: #261d18;
+    --ink:          #f9f5f1;
+    --ink-soft:     #e2d7cd;
+    --ink-muted:    #b5a499;
+    --line:         #33281f;
+    --line-strong:  #4a3c32;
+    --accent:       #e3a49a;
+    --accent-wash:  #35201c;
+    --highlight:    #e08a7e;
+    --ok:           #6cc08a;
+    --ok-wash:      #13261b;
+    --warn:         #e0a94a;
+    --warn-wash:    #2c2210;
+    --warm:         #4fc3c7;
+    --warm-wash:    #10282a;
+    --cold:         #a792f5;
+    --cold-wash:    #221b3d;
+    --focus:        #e3a49a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:       #140f0c;
+  --surface:      #1d1612;
+  --surface-sunk: #261d18;
+  --ink:          #f9f5f1;
+  --ink-soft:     #e2d7cd;
+  --ink-muted:    #b5a499;
+  --line:         #33281f;
+  --line-strong:  #4a3c32;
+  --accent:       #e3a49a;
+  --accent-wash:  #35201c;
+  --highlight:    #e08a7e;
+  --ok:           #6cc08a;
+  --ok-wash:      #13261b;
+  --warn:         #e0a94a;
+  --warn-wash:    #2c2210;
+  --warm:         #4fc3c7;
+  --warm-wash:    #10282a;
+  --cold:         #a792f5;
+  --cold-wash:    #221b3d;
+  --focus:        #e3a49a;
+}
+
+/* Playfair's default figures are old-style; counts and phase numbers need to line up. */
+main .phase-num, main .facts dd { font-variant-numeric: lining-nums tabular-nums; }
+.masthead > .label { color: var(--highlight); }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 14.5px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--f-display);
+  text-wrap: balance;
+  margin: 0;
+  letter-spacing: -0.012em;
+}
+
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code {
+  background: var(--surface-sunk);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 0 4px;
+  color: var(--ink-soft);
+}
+
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 3px; }
+
+.label {
+  font-family: var(--f-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* ---------- page frame ---------- */
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 44px 28px 80px;
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 56px;
+}
+
+.rail {
+  position: sticky;
+  top: 28px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+.rail nav ol { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+.rail nav a {
+  display: flex; justify-content: space-between; gap: 10px;
+  padding: 5px 0;
+  color: var(--ink-soft); text-decoration: none; font-size: 13px;
+  border-bottom: 1px solid var(--line);
+}
+.rail nav a:hover { color: var(--accent); }
+.rail nav .n { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+
+.legend { display: flex; flex-direction: column; gap: 7px; font-size: 12.5px; color: var(--ink-soft); }
+.legend div { display: flex; align-items: center; gap: 8px; }
+
+main { min-width: 0; display: flex; flex-direction: column; gap: 52px; }
+
+/* ---------- header ---------- */
+.masthead { display: flex; flex-direction: column; gap: 14px; }
+.masthead h1 { font-size: 34px; font-weight: 700; line-height: 1.1; }
+.lede { max-width: 66ch; margin: 0; color: var(--ink-soft); font-size: 15.5px; }
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 8px 0 0;
+  border-top: 1px solid var(--line-strong);
+  border-bottom: 1px solid var(--line);
+}
+.facts div { padding: 12px 16px 12px 0; display: flex; flex-direction: column; gap: 2px; }
+.facts div + div { padding-left: 16px; border-left: 1px solid var(--line); }
+.facts dt { margin: 0; }
+.facts dd { margin: 0; font-family: var(--f-display); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.facts dd small { font-family: var(--f-body); font-size: 12.5px; font-weight: 400; color: var(--ink-muted); margin-left: 4px; }
+
+/* ---------- section heads ---------- */
+.section-head { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+.section-head h2 { font-size: 21px; font-weight: 650; }
+.section-head p { margin: 0; max-width: 70ch; color: var(--ink-muted); font-size: 13.5px; }
+
+/* ---------- phase track ---------- */
+.phases {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.phase {
+  padding: 14px 16px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.phase:nth-child(4n) { border-right: 0; }
+.phase:nth-child(n + 5) { border-bottom: 0; }
+.phase-top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.phase-num { font-family: var(--f-display); font-size: 26px; font-weight: 700; line-height: 1; color: var(--line-strong); font-variant-numeric: tabular-nums; }
+.phase h3 { font-size: 14.5px; font-weight: 650; }
+.phase p { margin: 0; font-size: 12.5px; color: var(--ink-muted); }
+.phase.is-built .phase-num { color: var(--ok); }
+.phase.is-next { background: var(--accent-wash); }
+.phase.is-next .phase-num { color: var(--accent); }
+.phase.is-track { background: var(--surface-sunk); }
+.phase.is-track .phase-num { font-size: 14px; letter-spacing: 0.06em; text-transform: uppercase; font-family: var(--f-mono); font-weight: 500; color: var(--ink-muted); }
+
+.shift {
+  margin: 14px 0 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--line-strong);
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  max-width: 78ch;
+}
+
+/* ---------- chips ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+  font-size: 11.5px; font-weight: 500; line-height: 18px;
+  padding: 1px 8px 1px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.chip.built   { color: var(--ok);     background: var(--ok-wash); }
+.chip.next    { color: var(--accent); background: var(--accent-wash); }
+.chip.planned { color: var(--ink-muted); background: transparent; border-color: var(--line-strong); }
+.chip.input   { color: var(--warn);   background: var(--warn-wash); }
+
+.warm { color: var(--warm); font-weight: 500; }
+.cold { color: var(--cold); font-weight: 500; }
+
+/* ---------- filter ---------- */
+.filter {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 12px 0;
+  background: var(--ground);
+  border-bottom: 1px solid var(--line);
+}
+.filter .label { margin-right: 4px; }
+.filter button {
+  appearance: none;
+  font: 500 12.5px/1 var(--f-body);
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  padding: 7px 10px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+.filter button .n { font-family: var(--f-mono); font-size: 11px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.filter button:hover { border-color: var(--accent); }
+.filter button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.filter button[aria-pressed="true"] .n { color: var(--surface); opacity: 0.75; }
+
+/* ---------- feature tables ---------- */
+.areas { display: flex; flex-direction: column; gap: 40px; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; min-width: 720px; }
+thead th {
+  text-align: left;
+  font-family: var(--f-mono); font-size: 10.5px; font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-muted);
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface-sunk);
+}
+tbody td { padding: 12px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+td.id { font-family: var(--f-mono); font-size: 12px; color: var(--ink-muted); white-space: nowrap; width: 72px; padding-top: 14px; }
+td.what strong { display: block; font-weight: 600; font-size: 14px; }
+td.what span { display: block; margin-top: 2px; color: var(--ink-soft); font-size: 13.5px; max-width: 64ch; }
+td.what em { display: block; margin-top: 4px; font-style: normal; font-size: 12.5px; color: var(--warn); }
+td.status { width: 132px; padding-top: 13px; }
+td.phase-col { width: 64px; font-family: var(--f-mono); font-size: 12px; color: var(--ink-soft); font-variant-numeric: tabular-nums; padding-top: 14px; }
+td.asked { width: 108px; font-size: 12px; color: var(--ink-muted); padding-top: 14px; }
+th.phase-col, th.asked, th.status { white-space: nowrap; }
+
+.empty-note { display: none; margin: 0; padding: 14px; color: var(--ink-muted); font-size: 13px; }
+
+/* ---------- decisions ---------- */
+.decisions { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 28px; }
+.decisions h3 { font-size: 15px; font-weight: 650; margin-bottom: 10px; }
+.decisions ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.decisions li { padding: 11px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 3px; }
+.decisions li strong { font-weight: 600; font-size: 14px; }
+.decisions li span { color: var(--ink-soft); font-size: 13.5px; }
+.decisions .blocks { font-family: var(--f-mono); font-size: 11.5px; color: var(--warn); }
+.decisions .when { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-muted); }
+
+.footnote { margin: 0; max-width: 78ch; font-size: 12.5px; color: var(--ink-muted); border-top: 1px solid var(--line); padding-top: 16px; }
+
+@media (max-width: 1000px) {
+  .page { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .rail { position: static; }
+  .rail nav ol { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); column-gap: 18px; }
+  .phases { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .phase:nth-child(4n) { border-right: 1px solid var(--line); }
+  .phase:nth-child(2n) { border-right: 0; }
+  .phase:nth-child(n + 5) { border-bottom: 1px solid var(--line); }
+  .phase:nth-child(n + 7) { border-bottom: 0; }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .facts div:nth-child(3) { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .facts div:nth-child(4) { border-top: 1px solid var(--line); }
+  .decisions { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 560px) {
+  .phases { grid-template-columns: minmax(0, 1fr); }
+  .phase { border-right: 0 !important; border-bottom: 1px solid var(--line) !important; }
+  .phase:last-child { border-bottom: 0 !important; }
+  .masthead h1 { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition: none !important; }
+}
+</style>
+
+<div class="page">
+  <aside class="rail" aria-label="Contents">
+    <nav>
+      <span class="label">Feature areas</span>
+      <ol>
+        <li><a href="#phases">Build order <span class="n">8</span></a></li>
+        <li><a href="#access">Access and roles <span class="n">6</span></a></li>
+        <li><a href="#targeting">Accounts and targeting <span class="n">8</span></a></li>
+        <li><a href="#collateral">Collateral <span class="n">6</span></a></li>
+        <li><a href="#drafting">Email creation <span class="n">5</span></a></li>
+        <li><a href="#sending">Sending <span class="n">6</span></a></li>
+        <li><a href="#broadcast">Global broadcast <span class="n">4</span></a></li>
+        <li><a href="#reporting">Reporting <span class="n">5</span></a></li>
+        <li><a href="#integrations">Data and integrations <span class="n">3</span></a></li>
+        <li><a href="#governance">Governance <span class="n">3</span></a></li>
+        <li><a href="#decisions">Decisions and questions <span class="n">13</span></a></li>
+      </ol>
+    </nav>
+    <div class="legend">
+      <span class="label">Status</span>
+      <div><span class="chip built">Built</span></div>
+      <div><span class="chip next">Building next</span></div>
+      <div><span class="chip planned">Planned</span></div>
+      <div><span class="chip input">Needs input</span></div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="masthead">
+      <span class="label">Walkthrough reference &middot; 10 Sep 2026</span>
+      <h1>Post-Sales Outreach</h1>
+      <p class="lede">
+        One place for the post-sales team to own email to existing clients: who to reach, what
+        material fits them, what went out, and how close each account is to its monthly cap.
+        It replaces ad-hoc CEO emails with owned, governed outreach, and extends reach to the
+        leaders we don't sell to yet: CHRO, CMO, CFO.
+      </p>
+      <dl class="facts">
+        <div><dt class="label">Features</dt><dd>46</dd></div>
+        <div><dt class="label">Built</dt><dd>21 <small>phases 1 and 2</small></dd></div>
+        <div><dt class="label">Building next</dt><dd>2 <small>phase 3</small></dd></div>
+        <div><dt class="label">Waiting on answers</dt><dd>6 <small>of 25 still to build</small></dd></div>
+      </dl>
+    </header>
+
+    <section id="phases" aria-labelledby="phases-h">
+      <div class="section-head">
+        <h2 id="phases-h">Build order</h2>
+        <p>Each phase is built, then stopped for review before the next one starts. Phases that
+          send real email come after the ones that can't.</p>
+      </div>
+      <ol class="phases">
+        <li class="phase is-built">
+          <div class="phase-top"><span class="phase-num">1</span><span class="chip built">Built</span></div>
+          <h3>Foundation</h3>
+          <p>Schema, sign-in, row-level security, read-only account views. Awaiting review.</p>
+        </li>
+        <li class="phase is-built">
+          <div class="phase-top"><span class="phase-num">2</span><span class="chip built">Built</span></div>
+          <h3>Accounts and targeting</h3>
+          <p>Customer lifecycle, My targets, team coverage, assignment management. Awaiting review.</p>
+        </li>
+        <li class="phase is-next">
+          <div class="phase-top"><span class="phase-num">3</span><span class="chip next">Next</span></div>
+          <h3>Collateral search</h3>
+          <p>Natural-language search, the Skott feed, trackable links.</p>
+        </li>
+        <li class="phase">
+          <div class="phase-top"><span class="phase-num">4</span><span class="chip planned">Planned</span></div>
+          <h3>One-click drafting</h3>
+          <p>Claude writes the draft; collateral goes in; pre-send check. Nothing sends yet.</p>
+        </li>
+        <li class="phase">
+          <div class="phase-top"><span class="phase-num">5</span><span class="chip input">Needs input</span></div>
+          <h3>Sending</h3>
+          <p>Warm and cold paths, monthly cap and opt-outs enforced, delivery tracking.</p>
+        </li>
+        <li class="phase">
+          <div class="phase-top"><span class="phase-num">6</span><span class="chip planned">Planned</span></div>
+          <h3>Global broadcast</h3>
+          <p>One campaign to every account, respecting caps and priority.</p>
+        </li>
+        <li class="phase">
+          <div class="phase-top"><span class="phase-num">7</span><span class="chip planned">Planned</span></div>
+          <h3>Reporting</h3>
+          <p>Outreach consistency, account coverage, relevant material.</p>
+        </li>
+        <li class="phase is-track">
+          <div class="phase-top"><span class="phase-num">Track</span><span class="chip input">Needs input</span></div>
+          <h3>Integrations</h3>
+          <p>Helix and Compass sync, leadership enrichment. Runs alongside once answered.</p>
+        </li>
+      </ol>
+      <p class="shift">
+        <strong>Changed from the original six phases.</strong> Drafting now comes before sending,
+        so Claude's drafts can be reviewed with no risk of an email going out. Helix, Compass and
+        enrichment moved to their own track because they are waiting on answers. Account
+        targeting, collateral search and the reporting views are new, added on 10 Sep.
+      </p>
+    </section>
+
+    <div class="filter" role="group" aria-label="Filter features by status">
+      <span class="label">Show</span>
+      <button type="button" data-filter="all" aria-pressed="true">All <span class="n">46</span></button>
+      <button type="button" data-filter="built" aria-pressed="false">Built <span class="n">21</span></button>
+      <button type="button" data-filter="next" aria-pressed="false">Building next <span class="n">2</span></button>
+      <button type="button" data-filter="planned" aria-pressed="false">Planned <span class="n">17</span></button>
+      <button type="button" data-filter="input" aria-pressed="false">Needs input <span class="n">6</span></button>
+    </div>
+
+    <div class="areas">
+
+      <section id="access" class="area" aria-labelledby="access-h">
+        <div class="section-head">
+          <h2 id="access-h">Access and roles</h2>
+          <p>Who can see which account. The rule lives in the database, so it holds even for
+            someone querying outside the app.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="built"><td class="id">AC-01</td><td class="what"><strong>Sign in</strong><span>Email and password through Supabase Auth. Four sample users: a PM, a CAL, a CSM and the post-sales lead.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">AC-02</td><td class="what"><strong>Roles per account</strong><span>A person joins an account as PM, CAL or CSM, with one primary owner. The same person can hold different roles on different accounts.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">AC-03</td><td class="what"><strong>People see only their accounts</strong><span>Anyone linked to an account sees that account, its contacts and its emails, and nothing else.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
+              <tr data-status="built"><td class="id">AC-04</td><td class="what"><strong>The lead sees every account</strong><span>The post-sales lead is an admin and sees all accounts without needing to be assigned.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
+              <tr data-status="built"><td class="id">AC-05</td><td class="what"><strong>Manage assignments</strong><span>The lead adds and removes owners on an account from a screen, and the change applies to what that person can see immediately.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">2</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="built"><td class="id">AC-06</td><td class="what"><strong>Access check</strong><span><code>npm run db:verify-rls</code> signs in as each user with the public key and confirms exactly which accounts come back.</span><em>Not yet run against a live database.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="targeting" class="area" aria-labelledby="targeting-h">
+        <div class="section-head">
+          <h2 id="targeting-h">Accounts and targeting</h2>
+          <p>What each person should work on, and what the lead sees across the team.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="built"><td class="id">TG-01</td><td class="what"><strong>Accounts dashboard</strong><span>Every visible account, most neglected first, with health, your role, the last email sent and the renewal date.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">TG-02</td><td class="what"><strong>Two-pane account view</strong><span>Engaged stakeholders on one side, the leadership committee on the other, each with the email type that fits them.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">TG-03</td><td class="what"><strong>Account status header</strong><span>The last email, who sent it and on which path, plus this month's count against the cap. Vertex Health Group shows 2 of 2.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">TG-04</td><td class="what"><strong>Customer lifecycle</strong><span>Every account is marked existing customer, churned, prospect or friend account, with the date it changed.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">2</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="built"><td class="id">TG-05</td><td class="what"><strong>My targets</strong><span>Your own list of who to reach now: existing customers going quiet, churned accounts to win back, friend accounts to warm up.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">2</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="built"><td class="id">TG-06</td><td class="what"><strong>Team coverage</strong><span>The lead sees every account with its owners, and which accounts have no owner or no email in 60 days.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">2</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="built"><td class="id">TG-07</td><td class="what"><strong>Opt-outs shown</strong><span>Contacts who opted out are flagged with their reason on both panes.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">TG-08</td><td class="what"><strong>Send path shown per contact</strong><span>Each contact shows whether an email would go <span class="warm">warm</span>, from the owner's mailbox, or <span class="cold">cold</span>, from an outbound domain.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="collateral" class="area" aria-labelledby="collateral-h">
+        <div class="section-head">
+          <h2 id="collateral-h">Collateral</h2>
+          <p>Finding the right marketing material and putting it in an email as a link we can track.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="built"><td class="id">CL-01</td><td class="what"><strong>Collateral library</strong><span>Briefs, case studies, ROI calculators, release notes and guides, each tagged by product and by the persona it speaks to.</span><em>Nine sample items today. Skott becomes the source in phase 3.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">CL-02</td><td class="what"><strong>Suggestions per contact</strong><span>Engaged contacts get material for products they already use. Leaders get cross-sell material for products they don't.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="next"><td class="id">CL-03</td><td class="what"><strong>Natural-language search</strong><span>Type what you need, such as "something for a CFO worried about duplicate vendor spend", and get ranked matches.</span></td><td class="status"><span class="chip next">Building next</span></td><td class="phase-col">3</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="input"><td class="id">CL-04</td><td class="what"><strong>Skott feed</strong><span>All collateral flows in from Skott through its API, so the library stays current without manual uploads.</span><em>Needs the Skott API docs and a key.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">3</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="next"><td class="id">CL-05</td><td class="what"><strong>Trackable links</strong><span>Each collateral link is unique to one email, so an open is tied to the account, the contact and the sender.</span></td><td class="status"><span class="chip next">Building next</span></td><td class="phase-col">3</td><td class="asked">Brief, 10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">CL-06</td><td class="what"><strong>Add collateral to an email</strong><span>Pick from search results or suggestions and it drops into the draft as a tracked link.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">4</td><td class="asked">10 Sep</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="drafting" class="area" aria-labelledby="drafting-h">
+        <div class="section-head">
+          <h2 id="drafting-h">Email creation</h2>
+          <p>Getting from "this account needs an email" to a draft worth sending, in one click.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="built"><td class="id">EM-01</td><td class="what"><strong>Versioned templates</strong><span>Templates keep every version, and each email records the version it used, so editing a template never changes what we already said.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">EM-02</td><td class="what"><strong>Cross-sell intro suggestion</strong><span>For each leader, the most relevant product their company doesn't use yet, paired with the intro template.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">EM-03</td><td class="what"><strong>One-click draft with Claude</strong><span>One click writes a draft from the account, the contact's role, the products in use and the collateral you picked.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">4</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">EM-04</td><td class="what"><strong>Edit and save drafts</strong><span>Subject and body stay editable, and drafts are saved against the account before anything is sent.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">4</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">EM-05</td><td class="what"><strong>Pre-send check</strong><span>Before sending you see sends left this month, opt-out status, the send path, and whether a broadcast takes priority.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">4</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="sending" class="area" aria-labelledby="sending-h">
+        <div class="section-head">
+          <h2 id="sending-h">Sending</h2>
+          <p>The first phase that sends real email to real clients, so every rule is enforced here,
+            not just shown.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="input"><td class="id">SD-01</td><td class="what"><strong><span class="warm">Warm</span> sending</strong><span>Routine updates to engaged stakeholders go from the owner's own mailbox on our real domain, e.g. via riya.kapoor@example.com.</span><em>Needs a decision: each owner's mailbox, or one shared post-sales address.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">5</td><td class="asked">Brief</td></tr>
+              <tr data-status="input"><td class="id">SD-02</td><td class="what"><strong><span class="cold">Cold</span> sending</strong><span>Cross-sell intros and friend-account outreach go from dedicated bought domains, e.g. via outbound-domain-02.example, never the main domain.</span><em>Needs a sending provider.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">5</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">SD-03</td><td class="what"><strong>Monthly cap enforced</strong><span>No account gets more than 2 emails per calendar month, counted across every sender, both paths and all campaigns. The number lives in <code>frequency_cap</code>.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">5</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">SD-04</td><td class="what"><strong>Opt-outs enforced</strong><span>A contact who opted out is skipped on both paths, warm and cold.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">5</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">SD-05</td><td class="what"><strong>Approval step</strong><span>An email can wait for the lead's approval before it goes out.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">5</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">SD-06</td><td class="what"><strong>Delivery tracking</strong><span>Each email records when it was sent, opened, replied to or bounced.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">5</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="broadcast" class="area" aria-labelledby="broadcast-h">
+        <div class="section-head">
+          <h2 id="broadcast-h">Global broadcast</h2>
+          <p>Telling every account about a new product or update without breaking anyone's cap.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="planned"><td class="id">BR-01</td><td class="what"><strong>Broadcast to every account</strong><span>Announce a launch or product update to all accounts as one campaign.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">6</td><td class="asked">Brief, 10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">BR-02</td><td class="what"><strong>Audience filters</strong><span>Narrow a broadcast by lifecycle, product in use, tier or health.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">6</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="input"><td class="id">BR-03</td><td class="what"><strong>Respects caps and priority</strong><span>Each account's cap and opt-outs still apply. When a broadcast and a routine email would both land in the same month, the priority rule decides which one waits.</span><em>The priority rule is a placeholder: broadcast wins and routine email waits 30 days.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">6</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">BR-04</td><td class="what"><strong>Campaign progress</strong><span>See queued, sent, skipped (with the reason), opened and replied for each campaign.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">6</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="reporting" class="area" aria-labelledby="reporting-h">
+        <div class="section-head">
+          <h2 id="reporting-h">Reporting</h2>
+          <p>Who is consistently reaching out, and whether what they send fits the account.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="planned"><td class="id">RP-01</td><td class="what"><strong>Outreach consistency</strong><span>Per person: emails per week, how many weeks they were active, and gaps where their accounts went quiet.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">RP-02</td><td class="what"><strong>Account coverage</strong><span>The share of each person's assigned accounts they emailed within the 30- and 60-day staleness windows.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">RP-03</td><td class="what"><strong>Relevant material</strong><span>Whether the collateral each person sent matches the account's products or its cross-sell target, and whether it was opened.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">RP-04</td><td class="what"><strong>Broadcast results</strong><span>Reach, skips, opens and replies for each campaign.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">RP-05</td><td class="what"><strong>Reports scoped by role</strong><span>Owners see their own numbers. The lead sees the whole team.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="integrations" class="area" aria-labelledby="integrations-h">
+        <div class="section-head">
+          <h2 id="integrations-h">Data and integrations</h2>
+          <p>Where accounts, contacts and lifecycle come from. The account and contact tables
+            already carry the fields a sync fills in.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="input"><td class="id">IN-01</td><td class="what"><strong>Helix sync</strong><span>Accounts, projects and contacts from Helix, which is Cortex. Its API exists, and Comms Tracker already reads it.</span><em>Needed before real accounts appear: the app has no screen to create accounts or contacts. Confirm this app can use the same Cortex key.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="input"><td class="id">IN-02</td><td class="what"><strong>Compass sync</strong><span>Accounts and customer status from Compass.</span><em>Does Compass have an API?</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">IN-03</td><td class="what"><strong>Leadership enrichment</strong><span>Find CHRO, CMO and CFO contacts at accounts where we don't sell to that team yet.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+
+      <section id="governance" class="area" aria-labelledby="governance-h">
+        <div class="section-head">
+          <h2 id="governance-h">Governance</h2>
+          <p>The rules that keep outreach owned, capped and auditable.</p>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
+            <tbody>
+              <tr data-status="built"><td class="id">GV-01</td><td class="what"><strong>Rules stored as data</strong><span>The cap, send-path routing, broadcast priority and staleness thresholds are settings in <code>app_policy</code>. Changing one is an edit, not a release.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">GV-02</td><td class="what"><strong>Audit trail</strong><span>Every business record stamps who created it and who last changed it. Deletes are soft, so nothing disappears.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">GV-03</td><td class="what"><strong>Full email record</strong><span>Each email keeps its full body alongside the template version it came from.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note">No features in this area match the filter.</p>
+        </div>
+      </section>
+    </div>
+
+    <section id="decisions" aria-labelledby="decisions-h">
+      <div class="section-head">
+        <h2 id="decisions-h">Decisions and open questions</h2>
+        <p>What is settled, and what each later phase is waiting on.</p>
+      </div>
+      <div class="decisions">
+        <div>
+          <h3>Decided</h3>
+          <ul>
+            <li><span class="when">10 Sep 2026</span><strong>Built in Post-Sales Outreach</strong><span>Not in Comms Tracker. Its Claude drafting and Helix connector get reused here.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>Collateral goes in as trackable links</strong><span>Not file attachments, so reporting can see what was opened.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>Emails send from the app</strong><span>On the <span class="warm">warm</span> and <span class="cold">cold</span> paths, with the cap and opt-outs enforced.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>Skott is fed through its API</strong><span>Collateral work doesn't wait on it; the connector plugs in once the docs arrive.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>Lyzr brand throughout</strong><span>The app and these documents use the colours and type from lyzr.ai/opencontroller.</span></li>
+            <li><span class="when">Phase 1</span><strong>Store the full email</strong><span>The full body plus a pin to the template version it came from.</span></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Needs an answer</h3>
+          <ul>
+            <li><span class="blocks">Blocks CL-04 &middot; phase 3</span><strong>Skott API docs and a key</strong><span>Which endpoints list collateral, how they're tagged, and how to authenticate.</span></li>
+            <li><span class="blocks">Blocks IN-01, IN-02</span><strong>Helix access, and does Compass have an API?</strong><span>Helix is Cortex and has an API. Nothing is known about Compass yet.</span></li>
+            <li><span class="blocks">Blocks phase 5</span><strong>Warm mailbox</strong><span>Send from each owner's own mailbox, or from one shared post-sales address?</span></li>
+            <li><span class="blocks">Blocks phase 5</span><strong>Cold sending provider</strong><span>Which service sends from the bought outbound domains.</span></li>
+            <li><span class="blocks">Blocks phase 6</span><strong>Broadcast vs routine priority</strong><span>The placeholder says broadcast wins and routine email waits 30 days. Confirm or change.</span></li>
+            <li><span class="blocks">Shapes TG-04</span><strong>Where "churned" comes from</strong><span>Phase 2 lets the lead set it by hand, and a Helix or Compass sync can take over later.</span></li>
+            <li><span class="blocks">Open</span><strong>What happens to Comms Tracker</strong><span>It is live today. Retire it, merge it in, or keep both once this ships?</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <p class="footnote">
+      Status reflects the code on 10 Sep 2026. Built means in the repository and passing
+      type-check, lint and build. No SQL in this project has run against a live database yet;
+      <code>npm run db:verify-rls</code> is the first check to run once one is connected.
+    </p>
+  </main>
+</div>
+
+<script>
+(function () {
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".filter button"));
+  var areas = Array.prototype.slice.call(document.querySelectorAll(".area"));
+
+  function apply(filter) {
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.filter === filter));
+    });
+    areas.forEach(function (area) {
+      var rows = area.querySelectorAll("tbody tr");
+      var shown = 0;
+      rows.forEach(function (row) {
+        var match = filter === "all" || row.dataset.status === filter;
+        row.hidden = !match;
+        if (match) shown += 1;
+      });
+      area.querySelector("table").hidden = shown === 0;
+      area.querySelector(".empty-note").style.display = shown === 0 ? "block" : "none";
+    });
+  }
+
+  buttons.forEach(function (b) {
+    b.addEventListener("click", function () { apply(b.dataset.filter); });
+  });
+})();
+</script>

@@ -1,0 +1,796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Post-Sales Outreach Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  /* Matches the shell the Artifact host injects, so this standalone file
+     renders identically when opened straight from disk. */
+  html { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<style>
+:root {
+  --ground:        #f4f5f8;
+  --surface:       #ffffff;
+  --surface-sunk:  #eef0f5;
+  --ink:           #12141c;
+  --ink-soft:      #3d4353;
+  --ink-muted:     #5f667a;
+  --line:          #e3e6ee;
+  --line-strong:   #cdd2df;
+  --accent:        #2b41a8;
+  --accent-ink:    #2b41a8;
+  --accent-wash:   #e9ecfa;
+  --ok:            #1f7a4d;
+  --ok-wash:       #e4f4ea;
+  --warn:          #9a6410;
+  --warn-wash:     #fbf0dc;
+  --bad:           #b4342c;
+  --bad-wash:      #fbe8e6;
+  --warm:          #0f6f72;
+  --warm-wash:     #dff1f1;
+  --cold:          #6b4fa8;
+  --cold-wash:     #eee9f8;
+  --shadow:        0 1px 2px rgba(18, 20, 28, .05), 0 6px 18px -12px rgba(18, 20, 28, .22);
+
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body:    "IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+  --f-mono:    "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:       #0f1116;
+    --surface:      #171a22;
+    --surface-sunk: #1e222c;
+    --ink:          #e8eaf0;
+    --ink-soft:     #c2c7d4;
+    --ink-muted:    #949bad;
+    --line:         #272c38;
+    --line-strong:  #39404f;
+    --accent:       #8298f7;
+    --accent-ink:   #a3b3fb;
+    --accent-wash:  #1c2145;
+    --ok:           #5cc48a;
+    --ok-wash:      #13291e;
+    --warn:         #e0a94a;
+    --warn-wash:    #2c2210;
+    --bad:          #f0736a;
+    --bad-wash:     #2e1614;
+    --warm:         #4fc3c7;
+    --warm-wash:    #10282a;
+    --cold:         #ab8df0;
+    --cold-wash:    #201a34;
+    --shadow:       0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.7);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:       #0f1116;
+  --surface:      #171a22;
+  --surface-sunk: #1e222c;
+  --ink:          #e8eaf0;
+  --ink-soft:     #c2c7d4;
+  --ink-muted:    #949bad;
+  --line:         #272c38;
+  --line-strong:  #39404f;
+  --accent:       #8298f7;
+  --accent-ink:   #a3b3fb;
+  --accent-wash:  #1c2145;
+  --ok:           #5cc48a;
+  --ok-wash:      #13291e;
+  --warn:         #e0a94a;
+  --warn-wash:    #2c2210;
+  --bad:          #f0736a;
+  --bad-wash:     #2e1614;
+  --warm:         #4fc3c7;
+  --warm-wash:    #10282a;
+  --cold:         #ab8df0;
+  --cold-wash:    #201a34;
+  --shadow:       0 1px 2px rgba(0,0,0,.4), 0 6px 18px -12px rgba(0,0,0,.7);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -.01em; }
+
+.shell { max-width: 1320px; margin: 0 auto; padding: 0 28px; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  position: sticky; top: 0; z-index: 20;
+}
+.topbar-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; padding: 12px 0; flex-wrap: wrap;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand-mark {
+  font-family: var(--f-display); font-weight: 700; font-size: 15px;
+  letter-spacing: -.015em;
+}
+.brand-note {
+  font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--ink-muted);
+  border: 1px solid var(--line-strong); border-radius: 3px; padding: 2px 6px;
+}
+
+.switcher { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.switcher-label {
+  font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--ink-muted);
+}
+.switcher-set { display: flex; border: 1px solid var(--line-strong); border-radius: 6px; overflow: hidden; }
+.switcher-btn {
+  appearance: none; border: 0; border-right: 1px solid var(--line-strong);
+  background: var(--surface); color: var(--ink-muted);
+  font-family: var(--f-body); font-size: 12.5px; font-weight: 500;
+  padding: 6px 11px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+  transition: background .12s ease, color .12s ease;
+}
+.switcher-btn:last-child { border-right: 0; }
+.switcher-btn:hover { background: var(--surface-sunk); color: var(--ink); }
+.switcher-btn[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-ink); }
+.switcher-btn .rc {
+  font-family: var(--f-mono); font-size: 10px; letter-spacing: .04em;
+  border: 1px solid currentColor; border-radius: 3px; padding: 0 3px; opacity: .75;
+}
+
+/* ---------- generic bits ---------- */
+.chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11.5px; font-weight: 500; line-height: 1.45;
+  border-radius: 4px; padding: 1px 6px; white-space: nowrap;
+  border: 1px solid transparent;
+}
+.chip--plain  { background: var(--surface-sunk); color: var(--ink-muted); border-color: var(--line); }
+.chip--ok     { background: var(--ok-wash);     color: var(--ok); }
+.chip--warn   { background: var(--warn-wash);   color: var(--warn); }
+.chip--bad    { background: var(--bad-wash);    color: var(--bad); }
+.chip--accent { background: var(--accent-wash); color: var(--accent-ink); }
+.chip--warm   { background: var(--warm-wash);   color: var(--warm); }
+.chip--cold   { background: var(--cold-wash);   color: var(--cold); }
+
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.eyebrow {
+  font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--ink-muted);
+}
+.linkish {
+  appearance: none; background: none; border: 0; padding: 0; cursor: pointer;
+  font: inherit; color: var(--accent-ink); text-decoration: none;
+}
+.linkish:hover { text-decoration: underline; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+
+/* ---------- dashboard ---------- */
+.page-head { padding: 30px 0 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+.page-head h1 { font-size: 22px; font-weight: 600; }
+.page-head p { margin: 5px 0 0; color: var(--ink-muted); font-size: 13px; max-width: 62ch; }
+
+.scope-strip {
+  display: flex; gap: 0; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); overflow: hidden; margin-bottom: 18px;
+}
+.scope-cell { padding: 12px 18px; border-right: 1px solid var(--line); flex: 1; min-width: 128px; }
+.scope-cell:last-child { border-right: 0; }
+.scope-val { font-family: var(--f-display); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.scope-val.is-bad { color: var(--bad); }
+.scope-val.is-warn { color: var(--warn); }
+.scope-cap { font-size: 12px; color: var(--ink-muted); margin-top: 1px; }
+
+.table-wrap { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow-x: auto; box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  text-align: left; font-family: var(--f-mono); font-weight: 400;
+  font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--ink-muted); background: var(--surface-sunk);
+  padding: 9px 16px; border-bottom: 1px solid var(--line); white-space: nowrap;
+}
+tbody td { padding: 13px 16px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr { position: relative; }
+tbody tr:hover { background: var(--surface-sunk); }
+tbody tr.is-flagged td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+tbody tr.is-critical td:first-child { box-shadow: inset 3px 0 0 var(--bad); }
+
+.acct-name { font-weight: 600; font-size: 14px; }
+.acct-sub { font-size: 12px; color: var(--ink-muted); margin-top: 2px; display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.cell-quiet { font-size: 12.5px; color: var(--ink-muted); }
+.cell-line { font-size: 12.5px; }
+
+/* segmented governor gauge */
+.gauge { display: flex; gap: 3px; width: 62px; margin-top: 5px; }
+.gauge span { height: 5px; flex: 1; border-radius: 1px; background: var(--line-strong); }
+.gauge span.on { background: var(--accent); }
+.gauge span.full { background: var(--bad); }
+.gauge--lg { width: 100%; gap: 4px; margin-top: 10px; }
+.gauge--lg span { height: 8px; border-radius: 2px; }
+
+/* ---------- account view ---------- */
+.acct-head { background: var(--surface); border-bottom: 1px solid var(--line); }
+.acct-head-inner { padding: 16px 0 22px; }
+.crumb { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; }
+.title-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 0; }
+.title-row h1 { font-size: 25px; font-weight: 700; }
+
+.meta { display: flex; flex-wrap: wrap; gap: 0 30px; margin: 14px 0 0; padding: 0; }
+.meta div { padding: 4px 0; }
+.meta dt { font-family: var(--f-mono); font-size: 10.5px; letter-spacing: .07em; text-transform: uppercase; color: var(--ink-muted); }
+.meta dd { margin: 1px 0 0; font-size: 13px; }
+
+.instruments { display: grid; gap: 14px; grid-template-columns: 1fr; margin-top: 20px; }
+@media (min-width: 900px) { .instruments { grid-template-columns: 1.4fr 1fr; } }
+.instrument {
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: var(--surface-sunk); padding: 13px 16px 15px;
+}
+.instrument-body { margin-top: 7px; font-size: 13.5px; }
+.instrument-foot { margin-top: 9px; font-size: 11.5px; color: var(--ink-muted); }
+
+.panes { display: grid; gap: 18px; grid-template-columns: 1fr; padding: 22px 0 12px; }
+@media (min-width: 1040px) { .panes { grid-template-columns: 1fr 1fr; } }
+
+.pane { border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: var(--shadow); overflow: hidden; }
+.pane-head { padding: 13px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.pane-head h2 { font-size: 14.5px; font-weight: 600; }
+.pane-head p { margin: 3px 0 0; font-size: 12px; color: var(--ink-muted); max-width: 44ch; }
+.pane-count { font-family: var(--f-mono); font-size: 12px; color: var(--ink-muted); }
+.pane--committee .pane-head { border-bottom-color: var(--cold); border-bottom-width: 2px; }
+.pane--engaged .pane-head { border-bottom-color: var(--warm); border-bottom-width: 2px; }
+
+.row { padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row-top { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start; }
+.row-id { min-width: 0; }
+.row-name { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.row-name strong { font-size: 13.5px; font-weight: 600; }
+.row-title { font-size: 12.5px; color: var(--ink-soft); margin-top: 2px; }
+.row-mail { font-family: var(--f-mono); font-size: 11.5px; color: var(--ink-muted); margin-top: 3px; word-break: break-all; }
+.row-act { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+
+.btn-compose {
+  appearance: none; font: inherit; font-size: 12.5px; font-weight: 500;
+  border: 1px solid var(--line-strong); border-radius: 6px;
+  background: var(--surface); color: var(--ink-soft);
+  padding: 4px 11px; cursor: pointer;
+}
+.btn-compose:hover { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); }
+.btn-compose[disabled] { cursor: not-allowed; opacity: .5; }
+.route { font-size: 11px; color: var(--ink-muted); text-align: right; }
+.route .mono { font-size: 10.5px; }
+
+.suggest { margin-top: 10px; border-left: 2px solid var(--line-strong); padding-left: 11px; }
+.suggest--intro { border-left-color: var(--cold); }
+.suggest-line { font-size: 12.5px; margin-top: 3px; }
+.suggest-sub { font-size: 12px; color: var(--ink-muted); }
+.subject-preview { font-family: var(--f-mono); font-size: 11px; color: var(--ink-muted); margin-top: 4px; }
+.asset { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 12.5px; margin-top: 4px; }
+.asset a { color: var(--accent-ink); text-decoration: none; }
+.asset a:hover { text-decoration: underline; }
+
+.pane-empty { padding: 26px 16px; text-align: center; font-size: 12.5px; color: var(--ink-muted); }
+
+.footnote { font-size: 12px; color: var(--ink-muted); padding: 4px 0 40px; max-width: 78ch; }
+.footnote code { font-family: var(--f-mono); font-size: 11.5px; background: var(--surface-sunk); padding: 1px 4px; border-radius: 3px; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="topbar">
+  <div class="shell topbar-inner">
+    <div class="brand">
+      <span class="brand-mark">Post-Sales Outreach</span>
+      <span class="brand-note">Phase 1 · read-only prototype</span>
+    </div>
+    <div class="switcher">
+      <span class="switcher-label">Signed in as</span>
+      <div class="switcher-set" id="switcher" role="group" aria-label="Switch user"></div>
+    </div>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------ *
+ * Seeded demo data - mirrors supabase/seed.sql exactly.
+ * Nothing here is real client information.
+ * ------------------------------------------------------------------ */
+
+const USERS = [
+  { id: "riya",   name: "Riya Kapoor",    short: "Riya",   role: "PM",    roleLabel: "Project Manager",           mailbox: "riya.kapoor@example.com",    coldDomain: "outbound-domain-01.example", admin: false },
+  { id: "marcus", name: "Marcus Webb",    short: "Marcus", role: "CAL",   roleLabel: "Client Account Lead",       mailbox: "marcus.webb@example.com",    coldDomain: "outbound-domain-02.example", admin: false },
+  { id: "elena",  name: "Elena Ortiz",    short: "Elena",  role: "CSM",   roleLabel: "Customer Success Manager",  mailbox: "elena.ortiz@example.com",    coldDomain: "outbound-domain-01.example", admin: false },
+  { id: "dana",   name: "Dana Whitfield", short: "Dana",   role: "LEAD",  roleLabel: "Post-sales lead",           mailbox: "dana.whitfield@example.com", coldDomain: "outbound-domain-03.example", admin: true  },
+];
+
+const ASSET = {
+  chroBrief:    { title: "Workforce Analytics: the CHRO brief",   kind: "one-pager",     product: "Workforce Analytics" },
+  waRelease:    { title: "Workforce Analytics Q3 release notes",  kind: "release note",  product: "Workforce Analytics" },
+  cmoBrief:     { title: "Campaign Studio: the CMO brief",        kind: "one-pager",     product: "Campaign Studio" },
+  csPlaybook:   { title: "Campaign Studio operator playbook",     kind: "guide",         product: "Campaign Studio" },
+  siRoi:        { title: "Spend Intelligence ROI calculator",     kind: "ROI calculator",product: "Spend Intelligence" },
+  siQuarterly:  { title: "Spend Intelligence quarterly update",   kind: "release note",  product: "Spend Intelligence" },
+  ocCase:       { title: "Ops Command at a national carrier",     kind: "case study",    product: "Ops Command" },
+  rsGuide:      { title: "Risk Shield continuous-audit guide",    kind: "guide",         product: "Risk Shield" },
+  rsCfo:        { title: "Risk Shield: the CFO brief",            kind: "one-pager",     product: "Risk Shield" },
+};
+
+const INTRO_SUBJECT = "A question about {{function_topic}} at {{account_name}}";
+
+const ACCOUNTS = [
+  {
+    id: "northwind", name: "Northwind Logistics", tier: "Enterprise", health: "green",
+    arr: "$420k", renewal: "31 Jan 2027", source: "helix · HLX-1041", syncedHrs: 6,
+    products: ["Ops Command", "Spend Intelligence"], friend: false,
+    team: [{ n: "Riya Kapoor", r: "PM", primary: true }, { n: "Elena Ortiz", r: "CSM" }],
+    owners: { riya: "PM", elena: "CSM" },
+    sends: { total: 1, warm: 1, cold: 0 },
+    last: { type: "Product update", contact: "Priya Raman", days: 5, status: "opened", path: "warm", sender: "Riya Kapoor" },
+    engaged: [
+      { name: "Priya Raman", title: "VP Operations", fn: "Operations", email: "priya.raman@northwindlogistics.com", rel: "champion", assets: [ASSET.ocCase] },
+      { name: "Tom Alvarez", title: "Director of IT", fn: "IT", email: "tom.alvarez@northwindlogistics.com", rel: "active", assets: [ASSET.ocCase] },
+      { name: "Sana Qureshi", title: "Finance Manager", fn: "Finance", email: "sana.qureshi@northwindlogistics.com", rel: "active", assets: [ASSET.siQuarterly] },
+    ],
+    committee: [
+      { name: "Meredith Cole", title: "Chief Human Resources Officer", fn: "HR", email: "m.cole@northwindlogistics.com", rel: "cold", conf: 91,
+        intro: { product: "Workforce Analytics", pitch: "See attrition risk by team six months before it shows up in a resignation." }, assets: [ASSET.chroBrief] },
+      { name: "Daniel Ofori", title: "Chief Marketing Officer", fn: "Marketing", email: "d.ofori@northwindlogistics.com", rel: "cold", conf: 84,
+        intro: { product: "Campaign Studio", pitch: "One view of spend to pipeline across every channel, without a spreadsheet." }, assets: [ASSET.cmoBrief] },
+    ],
+  },
+  {
+    id: "vertex", name: "Vertex Health Group", tier: "Strategic", health: "yellow",
+    arr: "$780k", renewal: "30 Jun 2026", source: "helix · HLX-1077", syncedHrs: 6,
+    products: ["Workforce Analytics", "Risk Shield"], friend: false,
+    team: [{ n: "Marcus Webb", r: "CAL", primary: true }, { n: "Elena Ortiz", r: "CSM" }],
+    owners: { marcus: "CAL", elena: "CSM" },
+    sends: { total: 2, warm: 1, cold: 1 },
+    last: { type: "Cross-sell intro", contact: "Rachel Adeyemi", days: 1, status: "sent", path: "cold", sender: "Marcus Webb" },
+    engaged: [
+      { name: "Grace Lin", title: "Director of People Operations", fn: "HR", email: "grace.lin@vertexhealth.org", rel: "champion", assets: [ASSET.waRelease] },
+      { name: "Owen Brandt", title: "Compliance Lead", fn: "Legal", email: "owen.brandt@vertexhealth.org", rel: "active", assets: [ASSET.rsGuide] },
+    ],
+    committee: [
+      { name: "Rachel Adeyemi", title: "Chief Financial Officer", fn: "Finance", email: "r.adeyemi@vertexhealth.org", rel: "cold", conf: 88,
+        intro: { product: "Spend Intelligence", pitch: "Catch duplicate vendor spend before the renewal, not after it." }, assets: [ASSET.siRoi] },
+      { name: "Victor Hale", title: "Chief Marketing Officer", fn: "Marketing", email: "v.hale@vertexhealth.org", rel: "cold", conf: 79,
+        intro: { product: "Campaign Studio", pitch: "One view of spend to pipeline across every channel, without a spreadsheet." }, assets: [ASSET.cmoBrief] },
+    ],
+  },
+  {
+    id: "brightline", name: "Brightline Retail", tier: "Mid-market", health: "green",
+    arr: "$165k", renewal: "14 Mar 2027", source: "compass · CMP-2210", syncedHrs: 6,
+    products: ["Campaign Studio"], friend: false,
+    team: [{ n: "Riya Kapoor", r: "PM", primary: true }],
+    owners: { riya: "PM" },
+    sends: { total: 0, warm: 0, cold: 0 },
+    last: { type: "Product update", contact: "Nadia Fern", days: 40, status: "sent", path: "warm", sender: "Riya Kapoor" },
+    engaged: [
+      { name: "Nadia Fern", title: "Marketing Operations Manager", fn: "Marketing", email: "nadia.fern@brightlineretail.com", rel: "champion", assets: [ASSET.csPlaybook] },
+      { name: "Chris Okafor", title: "Ecommerce Director", fn: "Product", email: "chris.okafor@brightlineretail.com", rel: "active", assets: [ASSET.csPlaybook] },
+    ],
+    committee: [
+      { name: "Laura Beckett", title: "Chief Human Resources Officer", fn: "HR", email: "l.beckett@brightlineretail.com", rel: "cold", conf: 93,
+        intro: { product: "Workforce Analytics", pitch: "See attrition risk by team six months before it shows up in a resignation." }, assets: [ASSET.chroBrief] },
+      { name: "Simon Trent", title: "Chief Financial Officer", fn: "Finance", email: "s.trent@brightlineretail.com", rel: "cold", conf: 86,
+        intro: { product: "Spend Intelligence", pitch: "Catch duplicate vendor spend before the renewal, not after it." }, assets: [ASSET.siRoi, ASSET.rsCfo] },
+    ],
+  },
+  {
+    id: "cobalt", name: "Cobalt Financial", tier: "Enterprise", health: "red",
+    arr: "$550k", renewal: "31 Oct 2026", source: "helix · HLX-1188", syncedHrs: 6,
+    products: ["Risk Shield", "Spend Intelligence"], friend: false,
+    team: [{ n: "Marcus Webb", r: "CAL", primary: true }],
+    owners: { marcus: "CAL" },
+    sends: { total: 0, warm: 0, cold: 0 },
+    last: { type: "Product update", contact: "Hana Mori", days: 75, status: "opened", path: "warm", sender: "Marcus Webb" },
+    note: "Two escalations open. Keep outbound light until the support plan lands.",
+    engaged: [
+      { name: "Hana Mori", title: "Head of Risk", fn: "Legal", email: "hana.mori@cobaltfinancial.com", rel: "dormant", assets: [ASSET.rsGuide] },
+      { name: "Peter Vance", title: "Controller", fn: "Finance", email: "peter.vance@cobaltfinancial.com", rel: "detractor",
+        optedOut: "Unsubscribed after the March escalation.", assets: [ASSET.siQuarterly] },
+    ],
+    committee: [
+      { name: "Adele Marsh", title: "Chief Human Resources Officer", fn: "HR", email: "a.marsh@cobaltfinancial.com", rel: "cold", conf: 90,
+        intro: { product: "Workforce Analytics", pitch: "See attrition risk by team six months before it shows up in a resignation." }, assets: [ASSET.chroBrief] },
+      { name: "Ibrahim Nasser", title: "Chief Operating Officer", fn: "Operations", email: "i.nasser@cobaltfinancial.com", rel: "cold", conf: 82,
+        intro: { product: "Ops Command", pitch: "Every exception routed to an owner with an SLA clock on it." }, assets: [ASSET.ocCase] },
+    ],
+  },
+  {
+    id: "juniper", name: "Juniper Media", tier: "SMB", health: "green",
+    arr: "$42k", renewal: "31 Aug 2026", source: "compass · CMP-2318", syncedHrs: 6,
+    products: ["Campaign Studio", "Workforce Analytics (trial)"], friend: false,
+    team: [{ n: "Elena Ortiz", r: "CSM", primary: true }],
+    owners: { elena: "CSM" },
+    sends: { total: 0, warm: 0, cold: 0 },
+    last: null,
+    engaged: [
+      { name: "Kofi Mensah", title: "Head of Growth", fn: "Marketing", email: "kofi@junipermedia.co", rel: "active", assets: [ASSET.csPlaybook] },
+    ],
+    committee: [
+      { name: "Elise Dubois", title: "Chief Financial Officer", fn: "Finance", email: "e.dubois@junipermedia.co", rel: "cold", conf: 77,
+        intro: { product: "Spend Intelligence", pitch: "Catch duplicate vendor spend before the renewal, not after it." }, assets: [ASSET.siRoi, ASSET.rsCfo] },
+    ],
+  },
+  {
+    id: "halcyon", name: "Halcyon Energy", tier: "Mid-market", health: "unknown",
+    arr: "—", renewal: "—", source: "manual · FRIEND-004", syncedHrs: null,
+    products: [], friend: true,
+    team: [{ n: "Marcus Webb", r: "CAL", primary: true }],
+    owners: { marcus: "CAL" },
+    sends: { total: 0, warm: 0, cold: 0 },
+    last: null,
+    note: "Friend account - warm intro via the Brightline CMO, not yet a customer.",
+    engaged: [
+      { name: "Marta Silva", title: "Head of Digital", fn: "IT", email: "marta.silva@halcyonenergy.com", rel: "cold", assets: [] },
+    ],
+    committee: [
+      { name: "Greg Lindqvist", title: "Chief Human Resources Officer", fn: "HR", email: "g.lindqvist@halcyonenergy.com", rel: "cold", conf: 71,
+        intro: { product: "Workforce Analytics", pitch: "See attrition risk by team six months before it shows up in a resignation." }, assets: [ASSET.chroBrief] },
+    ],
+  },
+];
+
+/* app_policy rows, exactly as seeded */
+const POLICY = {
+  cap: 2,
+  staleWarnDays: 30,
+  staleAlertDays: 60,
+};
+
+/* ------------------------------------------------------------------ *
+ * Helpers
+ * ------------------------------------------------------------------ */
+
+let state = { userId: "marcus", accountId: null };
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+const currentUser = () => USERS.find((u) => u.id === state.userId);
+
+/** The RLS rule, in the browser: admin sees all, everyone else sees assignments. */
+function visibleAccounts() {
+  const u = currentUser();
+  return ACCOUNTS.filter((a) => u.admin || a.owners[u.id]);
+}
+
+function staleness(a) {
+  if (!a.last) return "never";
+  if (a.last.days >= POLICY.staleAlertDays) return "alert";
+  if (a.last.days >= POLICY.staleWarnDays) return "warn";
+  return "current";
+}
+const STALE_RANK = { never: 0, alert: 1, warn: 2, current: 3 };
+
+function relDays(d) {
+  if (d === null || d === undefined) return "never";
+  if (d === 0) return "today";
+  if (d === 1) return "yesterday";
+  return d + " days ago";
+}
+
+const HEALTH_CHIP = { green: "ok", yellow: "warn", red: "bad", unknown: "plain" };
+const REL_CHIP = { champion: "ok", active: "ok", dormant: "warn", detractor: "bad", cold: "plain" };
+const STATUS_CHIP = { replied: "ok", opened: "accent", sent: "plain" };
+
+function daysLeftInMonth() {
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  return Math.max(0, Math.ceil((end - now) / 86400000));
+}
+
+function gauge(sent, cap, large) {
+  const full = sent >= cap;
+  let out = '<div class="gauge' + (large ? " gauge--lg" : "") + '" aria-hidden="true">';
+  for (let i = 0; i < cap; i++) {
+    out += '<span class="' + (i < sent ? (full ? "full" : "on") : "") + '"></span>';
+  }
+  return out + "</div>";
+}
+
+/** Send-path routing, read from policy rather than branched on inline.
+ *  Friend accounts route cold even for pane 1 - they are not customers yet. */
+function routeFor(account, contactType) {
+  if (account.friend) return "cold";
+  return contactType === "engaged" ? "warm" : "cold";
+}
+
+/* ------------------------------------------------------------------ *
+ * Render: switcher
+ * ------------------------------------------------------------------ */
+function renderSwitcher() {
+  document.getElementById("switcher").innerHTML = USERS.map((u) =>
+    '<button class="switcher-btn" type="button" data-user="' + u.id + '"' +
+    ' aria-pressed="' + (u.id === state.userId) + '"' +
+    ' title="' + esc(u.roleLabel) + '">' +
+    esc(u.short) + '<span class="rc">' + u.role + "</span></button>"
+  ).join("");
+}
+
+/* ------------------------------------------------------------------ *
+ * Render: dashboard
+ * ------------------------------------------------------------------ */
+function renderDashboard() {
+  const u = currentUser();
+  const list = visibleAccounts()
+    .slice()
+    .sort((a, b) => STALE_RANK[staleness(a)] - STALE_RANK[staleness(b)] || a.name.localeCompare(b.name));
+
+  const flagged = list.filter((a) => staleness(a) !== "current").length;
+  const atCap = list.filter((a) => a.sends.total >= POLICY.cap).length;
+  const sentThisMonth = list.reduce((n, a) => n + a.sends.total, 0);
+
+  const rows = list.map((a) => {
+    const s = staleness(a);
+    const rowClass = s === "alert" || s === "never" ? "is-critical" : s === "warn" ? "is-flagged" : "";
+    const full = a.sends.total >= POLICY.cap;
+
+    const lastCell = a.last
+      ? '<div class="cell-line">' + esc(a.last.type) + " to " + esc(a.last.contact) + "</div>" +
+        '<div class="cell-quiet">' + relDays(a.last.days) + " · " + esc(a.last.status) +
+        " · " + esc(a.last.sender) + "</div>"
+      : '<div class="cell-quiet">no sends logged</div>';
+
+    const flag =
+      s === "never"  ? '<span class="chip chip--bad">never contacted</span>' :
+      s === "alert"  ? '<span class="chip chip--bad">' + POLICY.staleAlertDays + "+ days quiet</span>" :
+      s === "warn"   ? '<span class="chip chip--warn">' + POLICY.staleWarnDays + "+ days quiet</span>" : "";
+
+    return (
+      '<tr class="' + rowClass + '">' +
+      '<td><button class="linkish acct-name" type="button" data-account="' + a.id + '">' + esc(a.name) + "</button>" +
+        '<div class="acct-sub"><span>' + esc(a.tier) + '</span><span class="mono">' + esc(a.arr) + "</span>" +
+        (a.friend ? '<span class="chip chip--cold">friend account</span>' : "") + "</div></td>" +
+      '<td><span class="chip chip--' + HEALTH_CHIP[a.health] + '">' + (a.health === "unknown" ? "unknown" : a.health) + "</span></td>" +
+      '<td class="cell-quiet mono">' + (a.owners[u.id] || "admin") + "</td>" +
+      '<td class="cell-quiet mono">' + a.engaged.length + " / " + a.committee.length + "</td>" +
+      "<td>" + lastCell + (flag ? '<div style="margin-top:5px">' + flag + "</div>" : "") + "</td>" +
+      '<td><span class="mono cell-line"' + (full ? ' style="color:var(--bad);font-weight:600"' : ' style="color:var(--ink-muted)"') + ">" +
+        a.sends.total + " of " + POLICY.cap + "</span>" + gauge(a.sends.total, POLICY.cap, false) + "</td>" +
+      '<td class="cell-quiet mono">' + esc(a.renewal) + "</td>" +
+      "</tr>"
+    );
+  }).join("");
+
+  document.getElementById("view").innerHTML =
+    '<div class="shell">' +
+      '<div class="page-head">' +
+        "<div><h1>My accounts</h1><p>" +
+          (u.admin
+            ? "You are the post-sales lead, so every account is listed. Owners see only what they are assigned."
+            : "Every account you are assigned to. The list is scoped by row-level security in Postgres — not by this page.") +
+        "</p></div>" +
+      "</div>" +
+
+      '<div class="scope-strip">' +
+        '<div class="scope-cell"><div class="scope-val">' + list.length +
+          '<span style="font-size:13px;color:var(--ink-muted);font-weight:400"> of ' + ACCOUNTS.length + "</span></div>" +
+          '<div class="scope-cap">accounts visible to you</div></div>' +
+        '<div class="scope-cell"><div class="scope-val ' + (flagged ? "is-warn" : "") + '">' + flagged + "</div>" +
+          '<div class="scope-cap">need attention</div></div>' +
+        '<div class="scope-cell"><div class="scope-val ' + (atCap ? "is-bad" : "") + '">' + atCap + "</div>" +
+          '<div class="scope-cap">at the monthly cap</div></div>' +
+        '<div class="scope-cell"><div class="scope-val">' + sentThisMonth + "</div>" +
+          '<div class="scope-cap">emails sent this month</div></div>' +
+      "</div>" +
+
+      '<div class="table-wrap"><table>' +
+        "<thead><tr>" +
+          "<th>Account</th><th>Health</th><th>Your role</th><th>Contacts</th>" +
+          "<th>Last activity</th><th>This month</th><th>Renewal</th>" +
+        "</tr></thead><tbody>" + rows + "</tbody></table></div>" +
+
+      '<p class="footnote" style="padding-top:14px">' +
+        "Last activity and the monthly count are read from <code>email_activity</code> on every request. " +
+        "Neither is stored on the account row, so the two can never drift apart. " +
+        "Accounts with no touch in " + POLICY.staleWarnDays + "+ days sort to the top." +
+      "</p>" +
+    "</div>";
+}
+
+/* ------------------------------------------------------------------ *
+ * Render: account view
+ * ------------------------------------------------------------------ */
+function contactRow(account, c, type) {
+  const path = routeFor(account, type);
+  const u = currentUser();
+  const via = path === "warm" ? u.mailbox : u.coldDomain;
+
+  const chips =
+    '<span class="chip chip--plain">' + esc(c.fn) + "</span>" +
+    '<span class="chip chip--' + (REL_CHIP[c.rel] || "plain") + '">' + esc(c.rel) + "</span>" +
+    (c.conf ? '<span class="chip chip--cold" title="Enrichment confidence">enriched ' + c.conf + "%</span>" : "") +
+    (c.optedOut ? '<span class="chip chip--bad" title="' + esc(c.optedOut) + '">opted out</span>' : "");
+
+  const action = c.optedOut
+    ? '<button class="btn-compose" type="button" disabled>Compose</button>' +
+      '<div class="route" style="color:var(--bad)">blocked · opted out</div>'
+    : '<button class="btn-compose" type="button" disabled title="Composing and sending arrive in Phase 3">Compose</button>' +
+      '<div class="route">would send <span class="chip chip--' + path + '">' + path + "</span>" +
+      '<br><span class="mono">via ' + esc(via) + "</span></div>";
+
+  const intro = c.intro
+    ? '<div class="suggest suggest--intro">' +
+        '<div class="eyebrow">Suggested cross-sell intro</div>' +
+        '<div class="suggest-line"><strong>' + esc(c.intro.product) + "</strong> — " +
+          '<span class="suggest-sub">' + esc(c.intro.pitch) + "</span></div>" +
+        '<div class="subject-preview">subject: ' + esc(INTRO_SUBJECT) + "</div>" +
+      "</div>"
+    : "";
+
+  const assets = c.assets.length
+    ? '<div class="suggest">' +
+        '<div class="eyebrow">Suggested collateral · trackable link</div>' +
+        c.assets.map((a) =>
+          '<div class="asset"><a href="#" onclick="return false">' + esc(a.title) + "</a>" +
+          '<span class="chip chip--plain">' + esc(a.kind) + "</span>" +
+          '<span class="suggest-sub">' + esc(a.product) + "</span>" +
+          '<span class="chip chip--' + (type === "committee" ? "cold" : "accent") + '">' +
+            (type === "committee" ? "cross-sell" : "in use") + "</span></div>"
+        ).join("") +
+      "</div>"
+    : "";
+
+  return (
+    '<div class="row">' +
+      '<div class="row-top">' +
+        '<div class="row-id">' +
+          '<div class="row-name"><strong>' + esc(c.name) + "</strong>" + chips + "</div>" +
+          '<div class="row-title">' + esc(c.title) + "</div>" +
+          '<div class="row-mail">' + esc(c.email) + "</div>" +
+        "</div>" +
+        '<div class="row-act">' + action + "</div>" +
+      "</div>" + intro + assets +
+    "</div>"
+  );
+}
+
+function pane(account, type) {
+  const engaged = type === "engaged";
+  const list = engaged ? account.engaged : account.committee;
+  const body = list.length
+    ? list.map((c) => contactRow(account, c, type)).join("")
+    : '<div class="pane-empty">' +
+        (engaged ? "No engaged contacts synced for this account yet."
+                 : "No committee contacts yet — Phase 2 populates this pane from the enrichment provider.") +
+      "</div>";
+
+  return (
+    '<section class="pane pane--' + type + '">' +
+      '<div class="pane-head"><div>' +
+        "<h2>" + (engaged ? "Engaged stakeholders" : "Leadership committee") + "</h2>" +
+        "<p>" + (engaged
+          ? "People we already work with. Product and feature updates."
+          : "Functional leaders we do not sell to yet. Cross-sell intros.") + "</p>" +
+      "</div>" +
+      '<span class="pane-count">' + list.length + "</span></div>" +
+      body +
+    "</section>"
+  );
+}
+
+function renderAccount() {
+  const a = ACCOUNTS.find((x) => x.id === state.accountId);
+  const u = currentUser();
+  const s = staleness(a);
+  const full = a.sends.total >= POLICY.cap;
+
+  const lastBody = a.last
+    ? "Last sent: <strong>" + esc(a.last.type.toLowerCase()) + "</strong> to " + esc(a.last.contact) +
+      " — " + relDays(a.last.days) + " " +
+      '<span class="chip chip--' + (STATUS_CHIP[a.last.status] || "plain") + '">' + esc(a.last.status) + "</span> " +
+      '<span class="chip chip--' + a.last.path + '">' + a.last.path + " path</span>" +
+      '<div class="instrument-foot">by ' + esc(a.last.sender) + "</div>"
+    : '<span style="color:var(--warn)">No one has emailed this account from the app yet.</span>';
+
+  const staleFlag =
+    s === "never" ? '<div style="margin-top:8px"><span class="chip chip--bad">never contacted</span></div>' :
+    s === "alert" ? '<div style="margin-top:8px"><span class="chip chip--bad">no touch in ' + POLICY.staleAlertDays + "+ days</span></div>" :
+    s === "warn"  ? '<div style="margin-top:8px"><span class="chip chip--warn">no touch in ' + POLICY.staleWarnDays + "+ days</span></div>" : "";
+
+  const metaItems = [
+    ["Owning team", a.team.map((t) => t.n + " (" + t.r + ")").join(", ")],
+    ["ARR", '<span class="mono">' + esc(a.arr) + "</span>"],
+    ["Renewal", '<span class="mono">' + esc(a.renewal) + "</span>"],
+    ["Products in use", a.products.length ? a.products.join(", ") : "none"],
+    ["Synced from", '<span class="mono">' + esc(a.source) + "</span> · " +
+      (a.syncedHrs ? a.syncedHrs + "h ago" : "never synced")],
+  ].map(([k, v]) => "<div><dt>" + k + "</dt><dd>" + v + "</dd></div>").join("");
+
+  document.getElementById("view").innerHTML =
+    '<div class="acct-head"><div class="shell acct-head-inner">' +
+      '<button class="linkish crumb" type="button" data-back="1">&larr; All my accounts</button>' +
+      '<div class="title-row"><h1>' + esc(a.name) + "</h1>" +
+        '<span class="chip chip--' + HEALTH_CHIP[a.health] + '">' + (a.health === "unknown" ? "health unknown" : a.health) + "</span>" +
+        '<span class="chip chip--plain">' + esc(a.tier) + "</span>" +
+        (a.friend ? '<span class="chip chip--cold">friend account</span>' : "") +
+        '<span class="chip chip--accent">' + (a.owners[u.id] ? "You: " + a.owners[u.id] : "Admin view") + "</span>" +
+      "</div>" +
+      (a.note ? '<p style="margin:9px 0 0;font-size:12.5px;color:var(--ink-muted);max-width:70ch">' + esc(a.note) + "</p>" : "") +
+      '<dl class="meta">' + metaItems + "</dl>" +
+
+      '<div class="instruments">' +
+        '<div class="instrument">' +
+          '<div class="eyebrow">Last activity</div>' +
+          '<div class="instrument-body">' + lastBody + "</div>" + staleFlag +
+        "</div>" +
+        '<div class="instrument">' +
+          '<div class="eyebrow">Frequency governor</div>' +
+          '<div class="instrument-body"><span class="mono" style="font-size:17px;font-weight:600' +
+            (full ? ";color:var(--bad)" : "") + '">' + a.sends.total + " of " + POLICY.cap + "</span>" +
+            " emails sent this month</div>" +
+          gauge(a.sends.total, POLICY.cap, true) +
+          '<div class="instrument-foot">Counted across every sender, both send paths and all campaigns · ' +
+            a.sends.warm + " warm, " + a.sends.cold + " cold · resets in " + daysLeftInMonth() + " days" +
+            (full ? '<br><span style="color:var(--bad)">Cap reached — the governor will block further sends.</span>' : "") +
+          "</div>" +
+        "</div>" +
+      "</div>" +
+    "</div></div>" +
+
+    '<div class="shell">' +
+      '<div class="panes">' + pane(a, "engaged") + pane(a, "committee") + "</div>" +
+      '<p class="footnote">Phase 1 is read-only. Compose is disabled until Phase 3, when every send passes through ' +
+      "the frequency governor and is logged to <code>email_activity</code> at send time. " +
+      "The send path shown on each row is resolved from the <code>send_path_routing</code> policy, and is always " +
+      "displayed to the sender before a send.</p>" +
+    "</div>";
+}
+
+/* ------------------------------------------------------------------ *
+ * Wiring
+ * ------------------------------------------------------------------ */
+function render() {
+  renderSwitcher();
+  const visible = visibleAccounts();
+  if (state.accountId && !visible.some((a) => a.id === state.accountId)) {
+    // Switching user can revoke visibility - RLS would return nothing, so we
+    // fall back to the list rather than showing a stale account.
+    state.accountId = null;
+  }
+  if (state.accountId) renderAccount(); else renderDashboard();
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+document.addEventListener("click", (e) => {
+  const userBtn = e.target.closest("[data-user]");
+  if (userBtn) { state.userId = userBtn.dataset.user; render(); return; }
+
+  const acctBtn = e.target.closest("[data-account]");
+  if (acctBtn) { state.accountId = acctBtn.dataset.account; render(); return; }
+
+  if (e.target.closest("[data-back]")) { state.accountId = null; render(); }
+});
+
+render();
+</script>
+
+</body>
+</html>

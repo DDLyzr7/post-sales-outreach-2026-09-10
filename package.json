@@ -1,0 +1,34 @@
+{
+  "name": "post-sales-outreach",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "db:link": "supabase link --project-ref $SUPABASE_PROJECT_REF",
+    "db:push": "supabase db push",
+    "db:seed-users": "node --env-file=.env.local scripts/seed-users.mjs",
+    "db:seed": "node --env-file=.env.local scripts/apply-sql.mjs supabase/seed.sql",
+    "db:verify-rls": "node --env-file=.env.local scripts/verify-rls.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.12.6",
+    "@supabase/supabase-js": "^2.115.0",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.4",
+    "supabase": "^2.116.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

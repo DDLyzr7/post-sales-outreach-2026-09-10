@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/*
+ * Lyzr brand palette, taken from lyzr.ai/opencontroller: parchment ground,
+ * warm ink, mahogany for actions, roe for highlights, brick for problems.
+ * Lyzr violet is kept for the cold send path, so routing sits on its own
+ * colour axis and never reads as health or severity.
+ */
+:root {
+  --background: #fafaf9;
+  --surface: #ffffff;
+  --surface-muted: #f6f2ee;
+  --foreground: #160f0a;
+  --muted: #6e625a;
+  --border: #ebe5de;
+  --border-strong: #d9cec3;
+  --accent: #724b4b;
+  --accent-soft: #f3eae8;
+  --highlight: #c96a5a;
+  --green: #2f7a4f;
+  --green-soft: #e7f2ea;
+  --amber: #9a6410;
+  --amber-soft: #fbf0dc;
+  --red: #9b392e;
+  --red-soft: #faeae7;
+  --violet: #6e51e4;
+  --violet-soft: #efebfd;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #140f0c;
+    --surface: #1d1612;
+    --surface-muted: #261d18;
+    --foreground: #f9f5f1;
+    --muted: #b5a499;
+    --border: #33281f;
+    --border-strong: #4a3c32;
+    /* Roe rather than a pale tint, so white button text stays readable. */
+    --accent: #c96a5a;
+    --accent-soft: #35201c;
+    --highlight: #e08a7e;
+    --green: #6cc08a;
+    --green-soft: #13261b;
+    --amber: #e0a94a;
+    --amber-soft: #2c2210;
+    --red: #f08a7a;
+    --red-soft: #33170f;
+    --violet: #a792f5;
+    --violet-soft: #221b3d;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-highlight: var(--highlight);
+  --color-ok: var(--green);
+  --color-ok-soft: var(--green-soft);
+  --color-warn: var(--amber);
+  --color-warn-soft: var(--amber-soft);
+  --color-bad: var(--red);
+  --color-bad-soft: var(--red-soft);
+  --color-cold: var(--violet);
+  --color-cold-soft: var(--violet-soft);
+  --font-sans: var(--font-figtree);
+  --font-display: var(--font-playfair);
+  --font-mono: var(--font-dm-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+}
