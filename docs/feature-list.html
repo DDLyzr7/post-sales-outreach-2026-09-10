@@ -340,7 +340,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         <li><a href="#reporting">Reporting <span class="n">5</span></a></li>
         <li><a href="#integrations">Data and integrations <span class="n">3</span></a></li>
         <li><a href="#governance">Governance <span class="n">3</span></a></li>
-        <li><a href="#decisions">Decisions and questions <span class="n">14</span></a></li>
+        <li><a href="#decisions">Decisions and questions <span class="n">15</span></a></li>
       </ol>
     </nav>
     <div class="legend">
@@ -364,9 +364,9 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
       </p>
       <dl class="facts">
         <div><dt class="label">Features</dt><dd>46</dd></div>
-        <div><dt class="label">Built</dt><dd>21 <small>phases 1 and 2</small></dd></div>
-        <div><dt class="label">Building next</dt><dd>2 <small>phase 3</small></dd></div>
-        <div><dt class="label">Waiting on answers</dt><dd>6 <small>of 25 still to build</small></dd></div>
+        <div><dt class="label">Built</dt><dd>22 <small>phases 1 to 3</small></dd></div>
+        <div><dt class="label">Building next</dt><dd>0 <small>waiting on Skott</small></dd></div>
+        <div><dt class="label">Waiting on answers</dt><dd>7 <small>of 24 still to build</small></dd></div>
       </dl>
     </header>
 
@@ -390,7 +390,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         <li class="phase is-next">
           <div class="phase-top"><span class="phase-num">3</span><span class="chip next">Next</span></div>
           <h3>Collateral search</h3>
-          <p>Natural-language search, the Skott feed, trackable links.</p>
+          <p>Search built on sample collateral. The Skott feed and email links wait on Skott.</p>
         </li>
         <li class="phase">
           <div class="phase-top"><span class="phase-num">4</span><span class="chip planned">Planned</span></div>
@@ -429,10 +429,10 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
     <div class="filter" role="group" aria-label="Filter features by status">
       <span class="label">Show</span>
       <button type="button" data-filter="all" aria-pressed="true">All <span class="n">46</span></button>
-      <button type="button" data-filter="built" aria-pressed="false">Built <span class="n">21</span></button>
-      <button type="button" data-filter="next" aria-pressed="false">Building next <span class="n">2</span></button>
+      <button type="button" data-filter="built" aria-pressed="false">Built <span class="n">22</span></button>
+      <button type="button" data-filter="next" aria-pressed="false">Building next <span class="n">0</span></button>
       <button type="button" data-filter="planned" aria-pressed="false">Planned <span class="n">17</span></button>
-      <button type="button" data-filter="input" aria-pressed="false">Needs input <span class="n">6</span></button>
+      <button type="button" data-filter="input" aria-pressed="false">Needs input <span class="n">7</span></button>
     </div>
 
     <div class="areas">
@@ -493,10 +493,10 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
             <tbody>
               <tr data-status="built"><td class="id">CL-01</td><td class="what"><strong>Collateral library</strong><span>Briefs, case studies, ROI calculators, release notes and guides, each tagged by product and by the persona it speaks to.</span><em>Nine sample items today. Skott becomes the source in phase 3.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
               <tr data-status="built"><td class="id">CL-02</td><td class="what"><strong>Suggestions per contact</strong><span>Engaged contacts get material for products they already use. Leaders get cross-sell material for products they don't.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
-              <tr data-status="next"><td class="id">CL-03</td><td class="what"><strong>Natural-language search</strong><span>Type what you need, such as "something for a CFO worried about duplicate vendor spend", and get ranked matches.</span></td><td class="status"><span class="chip next">Building next</span></td><td class="phase-col">3</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="built"><td class="id">CL-03</td><td class="what"><strong>Natural-language search</strong><span>Type what you need, such as "something for a CFO worried about duplicate vendor spend", and get ranked matches.</span><em>Built on the sample collateral. Claude reads the request; Skott fills the library later.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">3</td><td class="asked">10 Sep</td></tr>
               <tr data-status="input"><td class="id">CL-04</td><td class="what"><strong>Skott feed</strong><span>All collateral flows in from Skott through its API, so the library stays current without manual uploads.</span><em>Needs the Skott API docs and a key.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">3</td><td class="asked">10 Sep</td></tr>
-              <tr data-status="next"><td class="id">CL-05</td><td class="what"><strong>Trackable links</strong><span>Each collateral link is unique to one email, so an open is tied to the account, the contact and the sender.</span></td><td class="status"><span class="chip next">Building next</span></td><td class="phase-col">3</td><td class="asked">Brief, 10 Sep</td></tr>
-              <tr data-status="planned"><td class="id">CL-06</td><td class="what"><strong>Add collateral to an email</strong><span>Pick from search results or suggestions and it drops into the draft as a tracked link.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">4</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="input"><td class="id">CL-05</td><td class="what"><strong>Collateral in emails</strong><span>How collateral goes into an email, as a link or an attachment. Nothing is tracked when someone opens it.</span><em>Parked until we see how Skott stores collateral.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">3</td><td class="asked">Brief, 10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">CL-06</td><td class="what"><strong>Add collateral to an email</strong><span>Pick from search results or suggestions and add it to the draft.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">4</td><td class="asked">10 Sep</td></tr>
             </tbody>
           </table>
           <p class="empty-note">No features in this area match the filter.</p>
@@ -575,7 +575,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
             <tbody>
               <tr data-status="planned"><td class="id">RP-01</td><td class="what"><strong>Outreach consistency</strong><span>Per person: emails per week, how many weeks they were active, and gaps where their accounts went quiet.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
               <tr data-status="planned"><td class="id">RP-02</td><td class="what"><strong>Account coverage</strong><span>The share of each person's assigned accounts they emailed within the 30- and 60-day staleness windows.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
-              <tr data-status="planned"><td class="id">RP-03</td><td class="what"><strong>Relevant material</strong><span>Whether the collateral each person sent matches the account's products or its cross-sell target, and whether it was opened.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">RP-03</td><td class="what"><strong>Relevant material</strong><span>Whether the collateral each person sent matches the account's products or its cross-sell target. Opens aren't tracked.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
               <tr data-status="planned"><td class="id">RP-04</td><td class="what"><strong>Broadcast results</strong><span>Reach, skips, opens and replies for each campaign.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">Brief</td></tr>
               <tr data-status="planned"><td class="id">RP-05</td><td class="what"><strong>Reports scoped by role</strong><span>Owners see their own numbers. The lead sees the whole team.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">7</td><td class="asked">10 Sep</td></tr>
             </tbody>
@@ -632,9 +632,10 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
           <h3>Decided</h3>
           <ul>
             <li><span class="when">10 Sep 2026</span><strong>Built in Post-Sales Outreach</strong><span>Not in Comms Tracker. Its Claude drafting and Helix connector get reused here.</span></li>
-            <li><span class="when">10 Sep 2026</span><strong>Collateral goes in as trackable links</strong><span>Not file attachments, so reporting can see what was opened.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>No click tracking on collateral</strong><span>It goes to people we already talk to. Link or attachment waits on Skott.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Emails send from the app</strong><span>On the <span class="warm">warm</span> and <span class="cold">cold</span> paths, with the cap and opt-outs enforced.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Skott is fed through its API</strong><span>Collateral work doesn't wait on it; the connector plugs in once the docs arrive.</span></li>
+            <li><span class="when">10 Sep 2026</span><strong>Collateral search reads requests with Claude</strong><span>The database ranks the library; nobody edits collateral until Skott is connected.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Microsoft sign-in, Lyzr only</strong><span>Real users sign in with their Lyzr Microsoft account; nobody becomes the lead automatically.</span></li>
             <li><span class="when">10 Sep 2026</span><strong>Lyzr brand throughout</strong><span>The app and these documents use the colours and type from lyzr.ai/opencontroller.</span></li>
             <li><span class="when">Phase 1</span><strong>Store the full email</strong><span>The full body plus a pin to the template version it came from.</span></li>
@@ -643,7 +644,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         <div>
           <h3>Needs an answer</h3>
           <ul>
-            <li><span class="blocks">Blocks CL-04 &middot; phase 3</span><strong>Skott API docs and a key</strong><span>Which endpoints list collateral, how they're tagged, and how to authenticate.</span></li>
+            <li><span class="blocks">Blocks CL-04 &middot; phase 3</span><strong>Skott API docs and a key</strong><span>Which endpoints list collateral, how they're tagged, whether items are files or links, and how to authenticate.</span></li>
             <li><span class="blocks">Blocks IN-01, IN-02</span><strong>Cortex SDK docs and access</strong><span>Helix (accounts, status) and Compass (owners, account mapping) each have their own endpoint. Asked the Cortex team for docs, keys and field details.</span></li>
             <li><span class="blocks">Blocks phase 5</span><strong>Warm mailbox</strong><span>Send from each owner's own mailbox, or from one shared post-sales address?</span></li>
             <li><span class="blocks">Blocks phase 5</span><strong>Cold sending provider</strong><span>Which service sends from the bought outbound domains.</span></li>

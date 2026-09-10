@@ -36,7 +36,7 @@ global broadcast.
 | --- | --- |
 | 1 — foundation: schema, auth, RLS, read-only two-pane view | **done, unreviewed** |
 | 2 — accounts and targeting: lifecycle, My targets, Team coverage, owner assignment | **done, unreviewed** |
-| 3 — collateral search: natural-language search, Skott API feed, trackable links | next. The Skott connector needs API docs and a key |
+| 3 — collateral search: natural-language search, Skott API feed | **search built, unreviewed**; the Skott feed waits on its API docs and a key; how collateral goes into emails is parked until Skott's data shape is known |
 | 4 — one-click drafting with Claude, collateral in drafts, pre-send check | not started |
 | 5 — sending: warm and cold paths, cap and opt-outs enforced, delivery tracking | not started. Sends through users' existing mailboxes; mail system and cold-path handling to confirm |
 | 6 — global broadcast to all accounts | not started. Needs the priority rule |
@@ -50,7 +50,7 @@ phase's open questions before writing code that depends on them.
 ### Verification state (2026-09-10)
 
 - **Build:** `npx tsc --noEmit`, `npx eslint .` and `npx next build` all pass. Routes:
-  `/`, `/accounts/[id]`, `/targets`, `/team`, `/login`, `/auth/callback`.
+  `/`, `/accounts/[id]`, `/targets`, `/team`, `/collateral`, `/login`, `/auth/callback`.
 - **Signed-in screens:** checked on the dev server (`:3001`) by signing in as the lead and
   as Riya and fetching each page from the server.
   - **The lead:** `/`, `/targets`, `/team` and `/accounts/[id]` all render with the right
@@ -58,12 +58,12 @@ phase's open questions before writing code that depends on them.
   - **Riya:** her dashboard shows only her 3 accounts. `/team` and another owner's
     account return 404, and her nav hides Team coverage.
   - The server log has no errors. The user hasn't clicked through in a browser yet.
-- **SQL:** all 9 SQL files (8 migrations plus the seed) parse with libpg_query, using
+- **SQL:** all 10 SQL files (9 migrations plus the seed) parse with libpg_query, using
   pglast 8.3 in a scratchpad venv. To recreate it:
   `python3 -m venv <dir> && <dir>/bin/pip install pglast`. pglast 8.4 fails to build
   on this Mac's Python 3.9, but 8.3 installs from a wheel.
 - **Live Supabase project**, created by the user in the dashboard:
-  - All 8 migrations are applied (`npx supabase db push --db-url … --yes`).
+  - All 9 migrations are applied (`npx supabase db push --db-url … --yes`).
   - `npm run db:seed-users` created the 4 users.
   - `db push --db-url … --include-seed --yes` loaded `seed.sql`
     (`supabase/config.toml` now has `[db.seed]`).
@@ -183,6 +183,27 @@ phase's open questions before writing code that depends on them.
       skew to report to Supabase.
     - **Not yet working end to end:** it needs the user's Azure and Supabase dashboard
       settings (open question 8).
+18. **Built Phase 3's collateral search.** The user's choices: database search plus
+    Claude, no editing until Skott is connected, no click tracking, and links parked until
+    Skott.
+    - **Migration `20260910000300_collateral_search.sql`:** a weighted `tsvector` on
+      collateral, and `search_collateral()`, which OR-matches words and boosts matches on
+      product, role and content type. Pushed to the live project.
+    - **`/collateral`:** you type a request, and Claude's reading appears as "Read as"
+      chips. Results link to the collateral itself.
+      - Opened from a contact's "Find collateral" link, the search adds that contact's role
+        and fitting products: products in use for engaged contacts, not-yet-used ones for
+        leadership.
+    - **Verified live:**
+      - The RPC checks pass: sentence OR-matching, boosts, content type, the empty
+        listing, and anon denied.
+      - Signed in as Riya, Claude read "something for a CFO worried about duplicate vendor
+        spend" as vendor-spend keywords, Spend Intelligence and Finance. Spend
+        Intelligence material ranked first.
+      - Another owner's contact is ignored, and the log has no errors.
+    - **The status check found the Microsoft sign-in dashboard steps not done yet.** The
+      Azure provider is off, and so is the sign-up hook: a non-Lyzr test account could be
+      created (it was deleted). Email sign-ups stay open until the hook is on.
 
 **Priority order the user will follow:**
 
@@ -201,8 +222,9 @@ phase's open questions before writing code that depends on them.
 sync, whichever the user picks.
 
 **Waiting on the user:**
-- **Post-Sales Outreach:** add the Microsoft sign-in dashboard settings (open question 8),
-  review Phases 1–2 in the browser at http://localhost:3001,
+- **Post-Sales Outreach:** switch on the Before User Created hook now (email sign-ups stay
+  open until it is on), add the rest of the Microsoft sign-in settings (open question 8),
+  review Phases 1–3 in the browser at http://localhost:3001,
   send Skott API docs and a key, and pass on the Cortex answers from Krish (open
   question 1).
 - **Comms Tracker:**
@@ -293,6 +315,13 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
       allows only example.com, the sample users. It fails closed.
     - Password sign-in is refused outside `NODE_ENV=development` inside `signIn`
       itself, not just hidden on the page.
+14. **Claude only chooses from lists it's given, and only on the server.**
+    - `src/lib/ai/collateral-search.ts` constrains products, roles and content types to
+      enums through structured output, and drops unknown product keys.
+    - It returns null on any refusal, error or missing key, and search falls back to
+      word matching.
+    - `ANTHROPIC_API_KEY` is server-only. Never import that module into a client
+      component.
 
 ## Layout
 
@@ -303,6 +332,7 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                                        targeting_rules
                         20260910000200 Microsoft sign-in: trusted profile fields,
                                        sign-up hook, sign_in_rules
+                        20260910000300 collateral search: tsvector index, search_collateral()
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
 scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs
@@ -312,9 +342,12 @@ src/lib/policy.ts       reads app_policy; resolveSendPath()
 src/lib/targeting.ts    My targets buckets: win back · going quiet · renewal · warm up ·
                         at cap · on track
 src/lib/providers/      SendProvider + EnrichmentProvider — interfaces only, nothing calls them
-src/app/(app)/          dashboard · accounts/[id] two-pane · targets · team (+ team/actions.ts)
+src/app/(app)/          dashboard · accounts/[id] two-pane · targets · team (+ team/actions.ts) ·
+                        collateral (natural-language search)
 src/app/auth/callback/  Microsoft sign-in return: exchanges the PKCE code, errors go to /login
 src/lib/auth.ts         password-sign-in gate (localhost only), same-site redirects, origin
+src/lib/ai/             collateral-search.ts: Claude reads a request into search terms
+src/lib/db/collateral.ts  search_collateral RPC, plus the contact a search is for
 src/components/         ui · account-status-header · contact-pane · owner-forms (client) ·
                         nav-links (client)
 docs/feature-list.html  walkthrough feature list (published artifact)
@@ -349,14 +382,23 @@ same goes for `/team`'s `notFound()` for non-admins and the hidden nav link.
 - **Built in Post-Sales Outreach, not Comms Tracker** (2026-09-10). Reuse Comms
   Tracker's proven pieces (its Claude drafting, the Cortex adapter) by porting the
   code, never by sharing its Supabase project.
-- **Collateral goes into emails as trackable links, never attachments** (2026-09-10,
-  confirming the brief). Reporting needs each open tied to the account, contact and
-  sender.
+- **No click tracking on collateral** (2026-09-10). This reverses an earlier call for
+  trackable links. Collateral goes to people the team is already in conversation with.
+  Whether it goes into emails as a link or an attachment is parked until Skott's data
+  shape is known.
 - **Emails send from the app on the warm and cold paths** (2026-09-10). Not Comms
   Tracker's compose handoff.
 - **Skott is the collateral source, fed through its API** (2026-09-10). Don't block
   collateral work on it: build against a provider interface and the existing
   `collateral` table.
+- **Collateral search is database ranking plus Claude** (2026-09-10).
+  - **Claude reads the request:** Claude Opus 5 (`claude-opus-5`), effort `low`, with
+    structured output and `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`).
+  - **The database ranks the library:** `search_collateral()` treats every signal as a
+    boost, not a filter.
+  - **API key:** Comms Tracker's Anthropic key, copied into `.env.local`.
+- **Nobody edits collateral in the app until Skott is connected.** Until then the library
+  holds the sample collateral.
 - **Lifecycle values are `existing | churned | prospect`.** A friend account is a
   prospect with `is_friend_account = true`. The flag stays because routing reads it.
 - **Sign-in is Microsoft, Lyzr accounts only** (2026-09-10).
@@ -430,7 +472,8 @@ a mockup affordance, not a pattern to copy into the app.
 **Needed before Phase 3's Skott connector:**
 
 2. **Skott API docs and a key:** the endpoints, how collateral is tagged (product,
-   persona, content type), and how authentication works.
+   persona, content type), and how authentication works. Also how Skott stores an item
+   (a file or a link), which decides how collateral goes into emails.
 
 **Needed before Phase 5:**
 

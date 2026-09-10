@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Badge, EmptyState, RELATIONSHIP_TONE } from "@/components/ui";
 import { FUNCTION_LABEL, SEND_PATH_LABEL } from "@/lib/format";
 import { resolveSendPath, type Policies } from "@/lib/policy";
@@ -71,6 +72,12 @@ function ContactRow({
           >
             Compose
           </button>
+          <Link
+            href={`/collateral?account=${contact.account_id}&contact=${contact.id}`}
+            className="text-[11px] font-medium text-accent hover:underline"
+          >
+            Find collateral
+          </Link>
           <span className="text-[11px] text-muted">
             would send{" "}
             <span className={sendPath === "warm" ? "text-ok" : "text-cold"}>
@@ -105,7 +112,6 @@ function ContactRow({
           <ul className="mt-1 space-y-1">
             {collateral.map((item) => (
               <li key={item.collateral_id} className="flex flex-wrap items-center gap-2 text-xs">
-                {/* Phase 3 replaces this with a per-send trackable link. */}
                 <span className="font-medium">{item.title}</span>
                 <Badge>{item.content_type.replace(/_/g, " ")}</Badge>
                 <span className="text-muted">{item.product_name}</span>

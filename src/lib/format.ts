@@ -69,3 +69,20 @@ export const CONTACT_TYPE_LABEL: Record<ContactType, string> = {
 export function firstName(fullName: string): string {
   return fullName.split(" ")[0];
 }
+
+/** Matches the content_type check constraint on public.collateral. */
+export const COLLATERAL_TYPE_LABEL: Record<string, string> = {
+  one_pager: "One-pager",
+  case_study: "Case study",
+  webinar: "Webinar",
+  roi_calculator: "ROI calculator",
+  guide: "Guide",
+  release_note: "Release note",
+};
+
+/** "finance:committee" -> "Finance (leadership)". */
+export function personaLabel(persona: string): string {
+  const [fn, type] = persona.split(":");
+  const role = FUNCTION_LABEL[fn as BusinessFunction] ?? fn;
+  return type === "committee" ? `${role} (leadership)` : `${role} (engaged)`;
+}

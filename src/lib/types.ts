@@ -83,6 +83,36 @@ export type Teammate = {
   default_role: AssignmentRole | null;
 };
 
+/** One ranked row from public.search_collateral. */
+export type CollateralHit = {
+  collateral_id: string;
+  title: string;
+  summary: string | null;
+  content_type: string;
+  asset_url: string;
+  product_names: string[];
+  product_keys: string[];
+  /** "function:contact_type", e.g. "finance:committee". */
+  personas: string[];
+  score: number;
+};
+
+/** A product, with what Claude needs to map a request onto it. */
+export type ProductOption = {
+  key: string;
+  name: string;
+  description: string | null;
+  target_functions: BusinessFunction[];
+};
+
+/** Claude's reading of a collateral request. Every list may be empty. */
+export type CollateralSearchPlan = {
+  keywords: string[];
+  product_keys: string[];
+  functions: BusinessFunction[];
+  content_types: string[];
+};
+
 export type Contact = {
   id: string;
   account_id: string;

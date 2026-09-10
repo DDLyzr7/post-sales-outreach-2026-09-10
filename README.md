@@ -57,6 +57,20 @@ The My targets groups, most urgent first:
 
 Every threshold is read from `app_policy`.
 
+## What Phase 3 delivers so far
+
+| Feature | Where it lives |
+| --- | --- |
+| Natural-language collateral search | `src/app/(app)/collateral/page.tsx`, `supabase/migrations/20260910000300_collateral_search.sql` |
+| Claude reads the request into keywords, products, roles and content types | `src/lib/ai/collateral-search.ts` (Claude Opus 5, structured output) |
+| "Find collateral" for a specific contact | the contact rows on each account page |
+
+- **Works without Claude:** if `ANTHROPIC_API_KEY` is missing or the call fails, the page
+  falls back to a plain word search.
+- **Nothing is tracked** when someone opens collateral.
+- **Still to come:** the Skott feed, and how collateral goes into emails, both wait on
+  Skott's API.
+
 A standalone clickable mockup of the Phase 1 screens is at `docs/ui-prototype.html`.
 Open it in a browser; no server is required. It predates the Lyzr brand.
 
@@ -77,6 +91,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon / publishable key> # Settings -> API
 SUPABASE_SERVICE_ROLE_KEY=<service role key>           # Settings -> API (keep secret)
 SUPABASE_DB_URL=<session pooler connection string>     # Settings -> Database (optional)
 SEED_USER_PASSWORD=PostSales!2026
+ANTHROPIC_API_KEY=<Anthropic API key>                  # optional: Claude reads collateral searches
 ```
 
 **2. Apply the migrations** (Phase 1 and Phase 2). Either link the CLI:

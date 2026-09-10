@@ -13,6 +13,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const links = [
     { href: "/", label: "Accounts" },
     { href: "/targets", label: "My targets" },
+    { href: "/collateral", label: "Collateral" },
     // Hidden from everyone but the lead; the page and its writes are refused for them anyway.
     ...(user.is_admin ? [{ href: "/team", label: "Team coverage" }] : []),
   ];
