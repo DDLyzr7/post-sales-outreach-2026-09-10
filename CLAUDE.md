@@ -213,8 +213,8 @@ phase's open questions before writing code that depends on them.
     - **Git:** the Post-Sales Outreach repo is clean and in sync with GitHub; the last
       commit before this entry is `cc2ce96`. Comms Tracker's repo still
       holds its one uncommitted change, `next.config.ts`.
-    - **Local servers:** Comms Tracker on `:3000` is running, and Post-Sales
-      Outreach on `:3001` is running.
+    - **Local servers:** both were running, then the system stopped them for low memory.
+      Restart commands are under "Local servers" below.
     - **Next without waiting on anyone:** Phase 4 (Claude drafting) and CI. The Cortex
       sync and the Skott feed start when their answers arrive, and Vercel comes last.
 
@@ -249,8 +249,9 @@ phase's open questions before writing code that depends on them.
     change.
   - Decide on the live view leak.
 
-**Left running:** Comms Tracker's dev server on `:3000`, and Post-Sales Outreach's on
-`:3001`.
+**Local servers:** none running. The system stopped both dev servers for low memory on
+2026-09-10. Restart Post-Sales Outreach with `npm run dev -- -p 3001`, and Comms Tracker
+with `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
 ## Commands
 
