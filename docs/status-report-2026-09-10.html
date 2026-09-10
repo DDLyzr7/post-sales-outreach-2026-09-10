@@ -234,23 +234,6 @@ tfoot td { padding: 12px 14px; border-top: 1px solid var(--line-strong); font-we
 .steps strong { font-weight: 600; }
 .steps span { display: block; color: var(--ink-soft); font-size: 14px; }
 
-.waiting-table td:first-child { font-weight: 600; width: 34%; }
-.waiting-table td { color: var(--ink-soft); }
-.waiting-table td:first-child { color: var(--ink); }
-.waiting-table table { min-width: 640px; }
-
-.decisions { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; border-top: 1px solid var(--line-strong); }
-.decisions li { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; color: var(--ink-soft); }
-.decisions strong { color: var(--ink); font-weight: 600; }
-
-.timeline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line); }
-.timeline div { padding: 16px 18px 16px 0; display: flex; flex-direction: column; gap: 4px; }
-.timeline div + div { padding-left: 18px; border-left: 1px solid var(--line); }
-.timeline .span { font-family: var(--f-body); font-weight: 650; font-size: 26px; line-height: 1.1; }
-.timeline .what { color: var(--ink-soft); font-size: 14px; }
-
-.footer { margin: 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 13px; max-width: 80ch; }
-
 /* ---------- tooltip ---------- */
 .tip {
   position: fixed; z-index: 10; pointer-events: none;
@@ -265,9 +248,7 @@ tfoot td { padding: 12px 14px; border-top: 1px solid var(--line-strong); font-we
   .headline { grid-template-columns: minmax(0, 1fr); gap: 20px; }
   .phase { grid-template-columns: 34px minmax(0, 1fr); }
   .phase .chip { grid-column: 2; justify-self: start; }
-  .columns, .decisions { grid-template-columns: minmax(0, 1fr); }
-  .timeline { grid-template-columns: minmax(0, 1fr); }
-  .timeline div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .columns { grid-template-columns: minmax(0, 1fr); }
   .steps li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
   .masthead h1 { font-size: 30px; }
 }
@@ -544,61 +525,6 @@ tfoot td { padding: 12px 14px; border-top: 1px solid var(--line-strong); font-we
     </ol>
   </section>
 
-  <section class="section waiting-table" aria-labelledby="waiting-h">
-    <div class="section-head">
-      <span class="label">Dependencies</span>
-      <h2 id="waiting-h">What we're waiting on</h2>
-      <p>These inputs unlock the features marked "waiting on inputs".</p>
-    </div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Input</th><th>From</th><th>Unlocks</th></tr></thead>
-        <tbody>
-          <tr><td>Cortex SDK details and access for Helix and Compass</td><td>Cortex team</td><td>Real accounts, customer status and account owners</td></tr>
-          <tr><td>Skott API details, a key, and how collateral is stored</td><td>Skott owner</td><td>The live collateral library, and how material goes into emails</td></tr>
-          <tr><td>Final Microsoft sign-in settings</td><td>Azure and Supabase admins</td><td>The team signing in with their Lyzr accounts</td></tr>
-          <tr><td>Which mail system the team uses, and how cross-sell emails should send</td><td>Post-sales lead</td><td>Sending from each person's mailbox</td></tr>
-          <tr><td>Whether a broadcast or a routine email wins in the same month</td><td>Post-sales lead</td><td>Global broadcast</td></tr>
-        </tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="section" aria-labelledby="decisions-h">
-    <div class="section-head">
-      <span class="label">Settled</span>
-      <h2 id="decisions-h">Key decisions</h2>
-    </div>
-    <ul class="decisions">
-      <li><strong>Its own app,</strong> separate from Comms Tracker.</li>
-      <li><strong>Lyzr Microsoft sign-in</strong> for the team; outside accounts are refused.</li>
-      <li><strong>Access follows ownership:</strong> people see their accounts; the lead sees all.</li>
-      <li><strong>Emails send from people's own mailboxes,</strong> on the existing email setup.</li>
-      <li><strong>Collateral comes from Skott,</strong> and nothing is tracked when someone opens it.</li>
-      <li><strong>Claude reads searches and writes drafts;</strong> people review before anything is sent.</li>
-      <li><strong>Built in phases,</strong> each reviewed before the next begins.</li>
-      <li><strong>Hosted on Lyzr's Vercel account</strong> as the final step.</li>
-    </ul>
-  </section>
-
-  <section class="section" aria-labelledby="timeline-h">
-    <div class="section-head">
-      <span class="label">Estimate</span>
-      <h2 id="timeline-h">Timeline</h2>
-      <p>From 10 September 2026, assuming the inputs above arrive within a few days of being asked.</p>
-    </div>
-    <div class="timeline">
-      <div><span class="label">Usable without sending</span><span class="span">4–6 weeks</span><span class="what">Real data, targets, collateral and drafts.</span></div>
-      <div><span class="label">First emails sent</span><span class="span">Week 6–7</span><span class="what">From connected mailboxes, with limits enforced.</span></div>
-      <div><span class="label">Everything built</span><span class="span">8–10 weeks</span><span class="what">Broadcast and reporting included.</span></div>
-    </div>
-  </section>
-
-  <p class="footer">
-    Status as of 10 September 2026. Built features are tested against the live database
-    with sample accounts. The full list of all 48 features, with IDs for walkthroughs, is
-    in the Post-Sales Outreach feature list.
-  </p>
 </main>
 
 <script>

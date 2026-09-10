@@ -220,8 +220,8 @@ phase's open questions before writing code that depends on them.
 20. **Shareable status report** at `docs/status-report-2026-09-10.html`, published at
     https://claude.ai/code/artifact/1838089d-55e2-4643-b0a1-55bf7ef3f488.
     - **Contents:** 22 of 48 features built, where each phase stands, progress by area,
-      what works today, what's next, what we're waiting on, key decisions, and the
-      timeline estimate.
+      what works today, and what's next. At the user's request it ends at "What's next";
+      the waiting-on, decisions and timeline sections were removed.
     - **Audience:** written for people outside the build, so it leaves out internal
       to-dos such as the sign-up hook.
     - **Chart colours:** the progress bars use one mahogany ramp (built, then waiting,
