@@ -88,6 +88,10 @@ npm run db:push
 
 …or paste each file in `supabase/migrations/` into the SQL editor, in filename order.
 
+No CLI login? Put the Session pooler connection string in `SUPABASE_DB_URL` (with the
+password percent-encoded) and run `npx supabase db push --db-url "<it>" --yes`. After
+step 3, add `--include-seed` to that command to load the seed instead of step 4.
+
 **3. Create the four auth users:**
 
 ```bash
@@ -213,20 +217,15 @@ Other decisions worth knowing:
 
 ## What is verified, and what is not
 
-**Verified here:**
+**Verified against the live Supabase project (2026-09-10):**
+- All seven migrations and the seed applied cleanly.
+- `npm run db:verify-rls` passes every check, including the Phase 2 write guards.
+- Signed in as the lead and as a PM, every page renders with the right accounts. For
+  the PM, Team coverage and other owners' accounts return 404.
 - `next build`, `tsc` and ESLint pass.
-- All eight SQL files (seven migrations and the seed) parse against the real
-  PostgreSQL grammar via `libpg_query`.
 
-**Not verified here:**
-- **No SQL has been executed.** This machine has no Docker and no Postgres, and
-  `.env.local` still holds the placeholder Supabase URL, so this app has no project to
-  run against yet.
-- **No screen has been opened.** With placeholder keys, `src/lib/env.ts` deliberately
-  throws inside the proxy, so every route returns 500 until real keys are set.
-
-So the migrations, the RLS policies, the Phase 2 write guards and the seed have not run
-against a live database, and none of the pages has been seen rendering. Run steps 2–5 above against your project. `npm run
+**Not verified yet:** a person clicking through the screens in a browser, including the
+owner and lifecycle forms on Team coverage. Run steps 2–5 above against your project. `npm run
 db:verify-rls` is the check that actually proves the ownership model, and it is the
 first thing to run.
 

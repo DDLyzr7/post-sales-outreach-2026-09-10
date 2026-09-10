@@ -4,3 +4,9 @@ project_id = "post-sales-outreach"
 
 [db]
 major_version = 17
+
+# Lets `supabase db push --include-seed` load the fictional seed data. It refuses
+# to run until `npm run db:seed-users` has created the four auth users.
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]

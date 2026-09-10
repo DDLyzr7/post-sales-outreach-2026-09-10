@@ -50,18 +50,27 @@ phase's open questions before writing code that depends on them.
 
 - **Build:** `npx tsc --noEmit`, `npx eslint .` and `npx next build` all pass. Routes:
   `/`, `/accounts/[id]`, `/targets`, `/team`, `/login`.
-- **Dev server: could not be smoke-tested.** Every route returns 500 until real Supabase
-  keys are set, because the proxy calls `src/lib/env.ts`, which deliberately throws on
-  the `YOUR-` placeholder anon key. That was already true in Phase 1; Phase 2 didn't
-  cause it. No screen has been seen rendering yet.
+- **Signed-in screens:** checked on the dev server (`:3001`) by signing in as the lead and
+  as Riya and fetching each page from the server.
+  - **The lead:** `/`, `/targets`, `/team` and `/accounts/[id]` all render with the right
+    data.
+  - **Riya:** her dashboard shows only her 3 accounts. `/team` and another owner's
+    account return 404, and her nav hides Team coverage.
+  - The server log has no errors. The user hasn't clicked through in a browser yet.
 - **SQL:** all 8 SQL files (7 migrations plus the seed) parse with libpg_query, using
   pglast 8.3 in a scratchpad venv. To recreate it:
   `python3 -m venv <dir> && <dir>/bin/pip install pglast`. pglast 8.4 fails to build
   on this Mac's Python 3.9, but 8.3 installs from a wheel.
-- **Nothing has run against a database.** The root `.env.local` still holds the
-  `YOUR-PROJECT-REF` placeholder URL, so this app has no Supabase project yet. Once one
-  exists, run `db:push`, `db:seed-users` and `db:seed`, then `db:verify-rls`, which now
-  also checks the Phase 2 write guards.
+- **Live Supabase project**, created by the user in the dashboard:
+  - All 7 migrations were applied with `npx supabase db push --db-url … --yes`.
+  - `npm run db:seed-users` created the 4 users.
+  - `db push --db-url … --include-seed --yes` loaded `seed.sql`
+    (`supabase/config.toml` now has `[db.seed]`).
+  - **`npm run db:verify-rls` passed every check:**
+    - Each owner sees exactly their own accounts and contacts, can't fetch anyone
+      else's, and can't change lifecycle or make themselves an owner.
+    - The lead sees all 8 accounts.
+    - The anon key sees nothing.
 
 ## Progress log
 
@@ -142,6 +151,16 @@ phase's open questions before writing code that depends on them.
     we need, so I drafted the reply for the user (open question 1). The Cortex sync
     becomes P1's first real-data step: Helix fills accounts and lifecycle, and Compass
     fills owners.
+16. **The Supabase project is live for Post-Sales Outreach.** The user created it in the
+    dashboard.
+    - **`.env.local`:** the URL, publishable key and secret key. The user had pasted only
+      the pooler host into `SUPABASE_DB_URL`, so the full connection string was built
+      from that host plus `SUPABASE_DB_PASSWORD`.
+    - **Database:** pushed all 7 migrations, created the 4 sample users and loaded
+      `seed.sql`. `db:verify-rls` passed every check.
+    - **Screens:** the signed-in page checks passed for the lead and for Riya. The app
+      runs at http://localhost:3001.
+    - **P0 steps 1 and 2 are done.** Next, the user reviews Phases 1–2 in the browser.
 
 **Priority order the user will follow:**
 
@@ -160,16 +179,17 @@ phase's open questions before writing code that depends on them.
 sync, whichever the user picks.
 
 **Waiting on the user:**
-- **Post-Sales Outreach:** a Supabase project (real keys in the root `.env.local`),
-  Skott API docs and a key, and the Cortex answers (open question 1).
+- **Post-Sales Outreach:** review Phases 1–2 in the browser at http://localhost:3001,
+  send Skott API docs and a key, and pass on the Cortex answers from Krish (open
+  question 1).
 - **Comms Tracker:**
   - Confirm the GitHub "Comms Tracker refresh" workflow is disabled.
   - OK to commit and push `comms-tracker/next.config.ts`. It's the only uncommitted
     change.
   - Decide on the live view leak.
 
-**Left running:** Comms Tracker's dev server on `:3000`. The root app's dev server was
-stopped.
+**Left running:** Comms Tracker's dev server on `:3000`, and Post-Sales Outreach's on
+`:3001`.
 
 ## Commands
 
@@ -181,15 +201,22 @@ npx eslint .             # lint
 
 npm run db:link          # SUPABASE_PROJECT_REF=<ref> npm run db:link
 npm run db:push          # apply supabase/migrations/ to the hosted project
+# What was actually used, with no CLI login: pass SUPABASE_DB_URL from .env.local
+#   npx supabase db push --db-url "<SUPABASE_DB_URL>" --yes            migrations
+#   npx supabase db push --db-url "<SUPABASE_DB_URL>" --include-seed --yes   seed.sql
 npm run db:seed-users    # create the 4 auth users (service-role key)
 npm run db:seed          # apply supabase/seed.sql (needs psql + SUPABASE_DB_URL)
 npm run db:verify-rls    # THE check that proves the ownership model and write guards
 ```
 
-There is no local Postgres, Docker or psql on this machine, so **SQL cannot be executed
-here**. Verify SQL syntax by parsing it with `libpg_query` (pglast in a venv), and say
-plainly that nothing ran against a live database. `npm run db:verify-rls` is what
-actually proves RLS, and it needs real keys in `.env.local`.
+There is no local Postgres, Docker or psql on this machine, so SQL can't run locally.
+- **It reaches the hosted project** through the Supabase CLI over `SUPABASE_DB_URL`.
+  That's the session pooler with a percent-encoded password, and the CLI builds it from
+  `SUPABASE_DB_PASSWORD`.
+- **It's the user's live project,** so parse new SQL with `libpg_query` (pglast in a
+  venv) first, say before you push, and say plainly whether it has been pushed.
+- **`npm run db:verify-rls` is what proves RLS against it.**
+- **Never print values from `.env.local`.**
 
 ## Invariants — do not break these
 

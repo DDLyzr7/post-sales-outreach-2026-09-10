@@ -452,7 +452,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
               <tr data-status="built"><td class="id">AC-03</td><td class="what"><strong>People see only their accounts</strong><span>Anyone linked to an account sees that account, its contacts and its emails, and nothing else.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
               <tr data-status="built"><td class="id">AC-04</td><td class="what"><strong>The lead sees every account</strong><span>The post-sales lead is an admin and sees all accounts without needing to be assigned.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief, 10 Sep</td></tr>
               <tr data-status="built"><td class="id">AC-05</td><td class="what"><strong>Manage assignments</strong><span>The lead adds and removes owners on an account from a screen, and the change applies to what that person can see immediately.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">2</td><td class="asked">10 Sep</td></tr>
-              <tr data-status="built"><td class="id">AC-06</td><td class="what"><strong>Access check</strong><span><code>npm run db:verify-rls</code> signs in as each user with the public key and confirms exactly which accounts come back.</span><em>Not yet run against a live database.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">AC-06</td><td class="what"><strong>Access check</strong><span><code>npm run db:verify-rls</code> signs in as each user with the public key and confirms exactly which accounts come back.</span><em>Passes against the live project (10 Sep 2026).</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
             </tbody>
           </table>
           <p class="empty-note">No features in this area match the filter.</p>
@@ -655,9 +655,9 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
     </section>
 
     <p class="footnote">
-      Status reflects the code on 10 Sep 2026. Built means in the repository and passing
-      type-check, lint and build. No SQL in this project has run against a live database yet;
-      <code>npm run db:verify-rls</code> is the first check to run once one is connected.
+      Status reflects the code on 10 Sep 2026. Built means in the repository, passing
+      type-check, lint and build, and running on the live Supabase project, where
+      <code>npm run db:verify-rls</code> passes every check.
     </p>
   </main>
 </div>
