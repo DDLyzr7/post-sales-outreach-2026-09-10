@@ -1,0 +1,631 @@
+<title>Post-Sales Outreach Status Report</title>
+<meta name="description" content="Where the post-sales outreach tool stands on 10 September 2026: what's built, what's next, and what it's waiting on.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700&family=Figtree:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Lyzr brand (lyzr.ai/opencontroller): parchment ground, warm ink, mahogany.
+   Progress uses one mahogany ramp, dark -> light = built -> waiting -> planned,
+   validated as an ordinal ramp for both themes. Words always sit beside colour. */
+:root {
+  --ground:       #fafaf9;
+  --surface:      #ffffff;
+  --surface-sunk: #f2ede8;
+  --ink:          #160f0a;
+  --ink-soft:     #514136;
+  --ink-muted:    #6e625a;
+  --line:         #ebe5de;
+  --line-strong:  #d9cec3;
+  --accent:       #724b4b;
+  --highlight:    #c96a5a;
+  --focus:        #724b4b;
+
+  --built:        #553636;
+  --waiting:      #8f6156;
+  --planned:      #c4a79c;
+  --chip-built:   #efe6e2;
+  --chip-waiting: #f6ece6;
+  --chip-planned: #f4f1ee;
+
+  --f-display: "Playfair Display", Georgia, "Times New Roman", serif;
+  --f-body:    "Figtree", "Segoe UI", Helvetica, Arial, sans-serif;
+  --f-mono:    "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:       #140f0c;
+    --surface:      #1d1612;
+    --surface-sunk: #261d18;
+    --ink:          #f9f5f1;
+    --ink-soft:     #e2d7cd;
+    --ink-muted:    #b5a499;
+    --line:         #33281f;
+    --line-strong:  #4a3c32;
+    --accent:       #e3a49a;
+    --highlight:    #e08a7e;
+    --focus:        #e3a49a;
+    --built:        #f4d6cd;
+    --waiting:      #c9947f;
+    --planned:      #7d5c52;
+    --chip-built:   #3a2a26;
+    --chip-waiting: #33251f;
+    --chip-planned: #2a211c;
+  }
+}
+
+:root[data-theme="dark"] {
+  --ground:       #140f0c;
+  --surface:      #1d1612;
+  --surface-sunk: #261d18;
+  --ink:          #f9f5f1;
+  --ink-soft:     #e2d7cd;
+  --ink-muted:    #b5a499;
+  --line:         #33281f;
+  --line-strong:  #4a3c32;
+  --accent:       #e3a49a;
+  --highlight:    #e08a7e;
+  --focus:        #e3a49a;
+  --built:        #f4d6cd;
+  --waiting:      #c9947f;
+  --planned:      #7d5c52;
+  --chip-built:   #3a2a26;
+  --chip-waiting: #33251f;
+  --chip-planned: #2a211c;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { margin: 0; text-wrap: balance; }
+h1, h2 { font-family: var(--f-display); letter-spacing: -0.012em; }
+h3 { font-family: var(--f-body); font-weight: 600; font-size: 15px; }
+
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; border-radius: 3px; }
+
+.label {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+.report {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 48px 28px 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
+}
+
+/* ---------- masthead ---------- */
+.masthead { display: flex; flex-direction: column; gap: 12px; border-bottom: 1px solid var(--line-strong); padding-bottom: 28px; }
+.masthead .label { color: var(--highlight); }
+.masthead h1 { font-size: 38px; font-weight: 700; line-height: 1.1; }
+.lede { margin: 0; max-width: 68ch; color: var(--ink-soft); font-size: 16px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 13px; color: var(--ink-muted); }
+
+/* ---------- section heads ---------- */
+.section { display: flex; flex-direction: column; gap: 18px; break-inside: avoid; }
+.section-head { display: flex; flex-direction: column; gap: 4px; }
+.section-head h2 { font-size: 23px; font-weight: 650; }
+.section-head p { margin: 0; max-width: 70ch; color: var(--ink-muted); font-size: 14px; }
+
+/* ---------- headline ---------- */
+.headline { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 36px; align-items: end; }
+.hero { display: flex; flex-direction: column; gap: 2px; }
+.hero-figure { font-family: var(--f-body); font-weight: 650; font-size: 56px; line-height: 1; letter-spacing: -0.02em; }
+.hero-figure small { font-size: 22px; font-weight: 500; color: var(--ink-muted); letter-spacing: 0; }
+.hero-caption { color: var(--ink-soft); font-size: 14px; }
+
+.progress { display: flex; flex-direction: column; gap: 12px; }
+.bar {
+  display: flex;
+  gap: 2px;                     /* surface gap between segments */
+  height: 16px;
+  background: var(--surface);
+  border-radius: 4px;
+}
+.seg { height: 100%; cursor: default; }
+.seg:first-child { border-radius: 4px 0 0 4px; }
+.seg:last-child  { border-radius: 0 4px 4px 0; }
+.seg.built   { background: var(--built); }
+.seg.waiting { background: var(--waiting); }
+.seg.planned { background: var(--planned); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 0; padding: 0; list-style: none; font-size: 13.5px; color: var(--ink-soft); }
+.legend li { display: flex; align-items: center; gap: 8px; }
+.swatch { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.swatch.built { background: var(--built); }
+.swatch.waiting { background: var(--waiting); }
+.swatch.planned { background: var(--planned); }
+.legend strong { color: var(--ink); font-weight: 600; }
+
+.note {
+  margin: 0;
+  padding: 12px 14px;
+  border-left: 2px solid var(--highlight);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font-size: 14px;
+  max-width: 78ch;
+}
+
+/* ---------- phases ---------- */
+.phases { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line-strong); }
+.phase {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 150px;
+  gap: 16px;
+  align-items: baseline;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.phase-num { font-family: var(--f-mono); font-size: 13px; color: var(--ink-muted); }
+.phase h3 { margin-bottom: 1px; }
+.phase p { margin: 0; color: var(--ink-soft); font-size: 14px; }
+
+.chip {
+  justify-self: end;
+  display: inline-flex; align-items: center; gap: 7px;
+  white-space: nowrap;
+  font-size: 12.5px; font-weight: 500;
+  padding: 3px 10px 3px 8px;
+  border-radius: 999px;
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+}
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chip.built   { background: var(--chip-built); border-color: transparent; }
+.chip.built .dot   { background: var(--built); }
+.chip.partly  { background: var(--chip-waiting); border-color: transparent; }
+.chip.partly .dot  { background: linear-gradient(90deg, var(--built) 50%, var(--planned) 50%); }
+.chip.next    { border-color: var(--accent); }
+.chip.next .dot    { background: transparent; border: 2px solid var(--accent); }
+.chip.waiting { background: var(--chip-waiting); border-color: transparent; }
+.chip.waiting .dot { background: var(--waiting); }
+.chip.planned { background: var(--chip-planned); border-color: transparent; }
+.chip.planned .dot { background: transparent; border: 2px solid var(--planned); }
+
+/* ---------- area table ---------- */
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; min-width: 820px; font-size: 14px; }
+thead th {
+  text-align: left;
+  font-family: var(--f-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-muted);
+  padding: 10px 14px; border-bottom: 1px solid var(--line-strong); background: var(--surface-sunk);
+  white-space: nowrap;
+}
+tbody td { padding: 13px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+td.area { font-weight: 600; white-space: nowrap; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 64px; }
+td.meter-cell { width: 170px; padding-top: 18px; }
+.meter { display: flex; gap: 2px; height: 10px; border-radius: 4px; background: var(--surface); }
+.meter .seg:only-child { border-radius: 4px; }
+td.detail { color: var(--ink-soft); }
+td.detail span { display: block; }
+td.detail .left { color: var(--ink-muted); margin-top: 3px; }
+tfoot td { padding: 12px 14px; border-top: 1px solid var(--line-strong); font-weight: 600; background: var(--surface-sunk); }
+
+/* ---------- lists ---------- */
+.columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 40px; }
+.group h3 { margin-bottom: 6px; }
+.group ul { margin: 0; padding-left: 18px; color: var(--ink-soft); font-size: 14.5px; }
+.group li + li { margin-top: 4px; }
+
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line-strong); }
+.steps li { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.steps .when { font-family: var(--f-mono); font-size: 12px; color: var(--ink-muted); padding-top: 3px; }
+.steps strong { font-weight: 600; }
+.steps span { display: block; color: var(--ink-soft); font-size: 14px; }
+
+.waiting-table td:first-child { font-weight: 600; width: 34%; }
+.waiting-table td { color: var(--ink-soft); }
+.waiting-table td:first-child { color: var(--ink); }
+.waiting-table table { min-width: 640px; }
+
+.decisions { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 40px; border-top: 1px solid var(--line-strong); }
+.decisions li { padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; color: var(--ink-soft); }
+.decisions strong { color: var(--ink); font-weight: 600; }
+
+.timeline { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line); }
+.timeline div { padding: 16px 18px 16px 0; display: flex; flex-direction: column; gap: 4px; }
+.timeline div + div { padding-left: 18px; border-left: 1px solid var(--line); }
+.timeline .span { font-family: var(--f-body); font-weight: 650; font-size: 26px; line-height: 1.1; }
+.timeline .what { color: var(--ink-soft); font-size: 14px; }
+
+.footer { margin: 0; padding-top: 18px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: 13px; max-width: 80ch; }
+
+/* ---------- tooltip ---------- */
+.tip {
+  position: fixed; z-index: 10; pointer-events: none;
+  background: var(--ink); color: var(--surface);
+  font-size: 12.5px; line-height: 1.4;
+  padding: 6px 9px; border-radius: 6px;
+  max-width: 260px;
+  transform: translate(-50%, calc(-100% - 10px));
+}
+
+@media (max-width: 760px) {
+  .headline { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .phase { grid-template-columns: 34px minmax(0, 1fr); }
+  .phase .chip { grid-column: 2; justify-self: start; }
+  .columns, .decisions { grid-template-columns: minmax(0, 1fr); }
+  .timeline { grid-template-columns: minmax(0, 1fr); }
+  .timeline div + div { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .steps li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .masthead h1 { font-size: 30px; }
+}
+
+@media print {
+  :root { --ground: #ffffff; }
+  .tip { display: none !important; }
+  .report { padding: 0; gap: 36px; }
+  .table-wrap { overflow: visible; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+
+<main class="report">
+
+  <header class="masthead">
+    <span class="label">Status report &middot; 10 September 2026</span>
+    <h1>Post-Sales Outreach</h1>
+    <p class="lede">
+      One place for the post-sales team to own email to existing clients: who each person
+      should reach next, the right material for each contact, what has already gone out,
+      and how close every account is to its monthly email limit. Account access, targeting
+      and plain-English collateral search are built and working. Email drafting is next.
+    </p>
+    <div class="meta">
+      <span>Phases 1 and 2 built, Phase 3 search built</span>
+      <span>Tested on sample data</span>
+      <span>Figures as of 10 Sep 2026</span>
+    </div>
+  </header>
+
+  <section class="section" aria-labelledby="glance-h">
+    <div class="section-head">
+      <span class="label">At a glance</span>
+      <h2 id="glance-h">Nearly half the features are built</h2>
+    </div>
+
+    <div class="headline">
+      <div class="hero">
+        <span class="hero-figure">22 <small>of 48</small></span>
+        <span class="hero-caption">features built and tested</span>
+      </div>
+
+      <div class="progress">
+        <div class="bar" role="img" aria-label="48 features: 22 built, 7 waiting on inputs, 19 planned">
+          <span class="seg built"   style="width:45.83%" tabindex="0" data-tip="Built: 22 of 48 features (46%)"></span>
+          <span class="seg waiting" style="width:14.58%" tabindex="0" data-tip="Waiting on inputs: 7 of 48 features (15%)"></span>
+          <span class="seg planned" style="width:39.58%" tabindex="0" data-tip="Planned: 19 of 48 features (40%)"></span>
+        </div>
+        <ul class="legend">
+          <li><span class="swatch built"></span><strong>22</strong> built</li>
+          <li><span class="swatch waiting"></span><strong>7</strong> waiting on inputs</li>
+          <li><span class="swatch planned"></span><strong>19</strong> planned</li>
+        </ul>
+      </div>
+    </div>
+
+    <p class="note">
+      Everything built runs on the live database with sample accounts. Real accounts,
+      customer status and owners arrive when the Cortex connection is in place.
+    </p>
+  </section>
+
+  <section class="section" aria-labelledby="phases-h">
+    <div class="section-head">
+      <span class="label">Build order</span>
+      <h2 id="phases-h">Where each phase stands</h2>
+      <p>Each phase is built and reviewed before the next starts. Phases that send real
+        email come after the ones that can't.</p>
+    </div>
+    <ol class="phases">
+      <li class="phase">
+        <span class="phase-num">01</span>
+        <div><h3>Foundation</h3><p>Accounts, contacts, access rules and the account views.</p></div>
+        <span class="chip built"><span class="dot"></span>Built</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">02</span>
+        <div><h3>Accounts and targeting</h3><p>Customer status, My targets, Team coverage and owner management.</p></div>
+        <span class="chip built"><span class="dot"></span>Built</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">03</span>
+        <div><h3>Collateral search</h3><p>Plain-English search is live. The Skott feed waits on API access.</p></div>
+        <span class="chip partly"><span class="dot"></span>Partly built</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">04</span>
+        <div><h3>One-click drafting</h3><p>Claude drafts an email from the account, the contact's role and the chosen material.</p></div>
+        <span class="chip next"><span class="dot"></span>Up next</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">05</span>
+        <div><h3>Sending</h3><p>From each person's own mailbox, with the monthly limit and opt-outs enforced.</p></div>
+        <span class="chip planned"><span class="dot"></span>Planned</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">06</span>
+        <div><h3>Global broadcast</h3><p>Product updates to every account in one campaign.</p></div>
+        <span class="chip planned"><span class="dot"></span>Planned</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">07</span>
+        <div><h3>Reporting</h3><p>Who reaches out consistently, account coverage, and whether material fits the account.</p></div>
+        <span class="chip planned"><span class="dot"></span>Planned</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">+</span>
+        <div><h3>Cortex connection</h3><p>Real accounts and status from Helix, owners from Compass. Runs alongside the phases.</p></div>
+        <span class="chip waiting"><span class="dot"></span>Waiting on inputs</span>
+      </li>
+      <li class="phase">
+        <span class="phase-num">+</span>
+        <div><h3>Company URL</h3><p>Hosting on Lyzr's Vercel account, as the final step.</p></div>
+        <span class="chip planned"><span class="dot"></span>Planned</span>
+      </li>
+    </ol>
+  </section>
+
+  <section class="section" aria-labelledby="areas-h">
+    <div class="section-head">
+      <span class="label">Feature status</span>
+      <h2 id="areas-h">Progress by area</h2>
+      <p>Built, waiting on inputs and planned features in each part of the tool.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Progress</th>
+            <th class="num">Built</th>
+            <th class="num">Waiting</th>
+            <th class="num">Planned</th>
+            <th>Done, and still to come</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="area">Access and roles</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="6 of 6 built"><span class="seg built" style="width:100%" tabindex="0" data-tip="Access and roles: 6 of 6 built"></span></div></td>
+            <td class="num">6</td><td class="num">0</td><td class="num">0</td>
+            <td class="detail"><span>Microsoft sign-in for Lyzr accounts, roles per account, people see only their accounts, the lead sees all, owner management.</span><span class="left">Sign-in switches on after a final settings step.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Accounts and targeting</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="8 of 8 built"><span class="seg built" style="width:100%" tabindex="0" data-tip="Accounts and targeting: 8 of 8 built"></span></div></td>
+            <td class="num">8</td><td class="num">0</td><td class="num">0</td>
+            <td class="detail"><span>Accounts dashboard, account page, status header, customer status, My targets, Team coverage, opt-outs, send path.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Collateral</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="3 built, 2 waiting, 1 planned of 6">
+              <span class="seg built" style="width:50%" tabindex="0" data-tip="Collateral: 3 built"></span><span class="seg waiting" style="width:33.33%" tabindex="0" data-tip="Collateral: 2 waiting on inputs"></span><span class="seg planned" style="width:16.67%" tabindex="0" data-tip="Collateral: 1 planned"></span>
+            </div></td>
+            <td class="num">3</td><td class="num">2</td><td class="num">1</td>
+            <td class="detail"><span>Collateral library, suggestions per contact, plain-English search.</span><span class="left">Still to come: the Skott feed and collateral in emails (both waiting on Skott), adding material to drafts.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Email creation</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="2 built, 3 planned of 5">
+              <span class="seg built" style="width:40%" tabindex="0" data-tip="Email creation: 2 built"></span><span class="seg planned" style="width:60%" tabindex="0" data-tip="Email creation: 3 planned"></span>
+            </div></td>
+            <td class="num">2</td><td class="num">0</td><td class="num">3</td>
+            <td class="detail"><span>Versioned templates, cross-sell intro suggestions.</span><span class="left">Still to come: one-click Claude drafts, editing drafts, the pre-send check.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Sending</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="2 waiting, 4 planned of 6">
+              <span class="seg waiting" style="width:33.33%" tabindex="0" data-tip="Sending: 2 waiting on inputs"></span><span class="seg planned" style="width:66.67%" tabindex="0" data-tip="Sending: 4 planned"></span>
+            </div></td>
+            <td class="num">0</td><td class="num">2</td><td class="num">4</td>
+            <td class="detail"><span class="left">Still to come: sending from each person's mailbox and cross-sell emails (both need decisions), the monthly limit and opt-outs enforced, approvals, delivery status.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Global broadcast</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="1 waiting, 3 planned of 4">
+              <span class="seg waiting" style="width:25%" tabindex="0" data-tip="Global broadcast: 1 waiting on inputs"></span><span class="seg planned" style="width:75%" tabindex="0" data-tip="Global broadcast: 3 planned"></span>
+            </div></td>
+            <td class="num">0</td><td class="num">1</td><td class="num">3</td>
+            <td class="detail"><span class="left">Still to come: campaigns to every account, audience filters, the broadcast priority rule (needs a decision), campaign progress.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Reporting</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="5 planned of 5">
+              <span class="seg planned" style="width:100%" tabindex="0" data-tip="Reporting: 5 planned"></span>
+            </div></td>
+            <td class="num">0</td><td class="num">0</td><td class="num">5</td>
+            <td class="detail"><span class="left">Still to come: outreach consistency, account coverage, relevant material, broadcast results, reports scoped by role.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Data and integrations</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="2 waiting, 1 planned of 3">
+              <span class="seg waiting" style="width:66.67%" tabindex="0" data-tip="Data and integrations: 2 waiting on inputs"></span><span class="seg planned" style="width:33.33%" tabindex="0" data-tip="Data and integrations: 1 planned"></span>
+            </div></td>
+            <td class="num">0</td><td class="num">2</td><td class="num">1</td>
+            <td class="detail"><span class="left">Still to come: Helix and Compass connection (waiting on the Cortex team), finding leadership contacts.</span></td>
+          </tr>
+          <tr>
+            <td class="area">Governance</td>
+            <td class="meter-cell"><div class="meter" role="img" aria-label="3 built, 2 planned of 5">
+              <span class="seg built" style="width:60%" tabindex="0" data-tip="Governance: 3 built"></span><span class="seg planned" style="width:40%" tabindex="0" data-tip="Governance: 2 planned"></span>
+            </div></td>
+            <td class="num">3</td><td class="num">0</td><td class="num">2</td>
+            <td class="detail"><span>Rules stored as settings, audit trail, full email record.</span><span class="left">Still to come: automatic quality checks, hosting on a company URL.</span></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>All areas</td>
+            <td></td>
+            <td class="num">22</td><td class="num">7</td><td class="num">19</td>
+            <td>48 features</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="working-h">
+    <div class="section-head">
+      <span class="label">Available now</span>
+      <h2 id="working-h">What works today</h2>
+    </div>
+    <div class="columns">
+      <div class="group">
+        <h3>Access and ownership</h3>
+        <ul>
+          <li>Each person sees only the accounts they own; the post-sales lead sees every account.</li>
+          <li>The lead adds and removes account owners from one screen.</li>
+          <li>Sign-in with a Lyzr Microsoft account is ready to switch on.</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Knowing who to reach</h3>
+        <ul>
+          <li>An accounts dashboard with the most neglected accounts first.</li>
+          <li>My targets: win back churned accounts, accounts going quiet, renewals coming up, prospects to warm up.</li>
+          <li>Team coverage shows how well each person's accounts are being contacted, and which have no owner.</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Understanding an account</h3>
+        <ul>
+          <li>Engaged stakeholders and the leadership team (CHRO, CMO, CFO) side by side.</li>
+          <li>The last email sent, who sent it, and this month's count against the limit.</li>
+          <li>Customer status, opt-outs, and cross-sell suggestions for each leader.</li>
+        </ul>
+      </div>
+      <div class="group">
+        <h3>Finding material</h3>
+        <ul>
+          <li>Search the collateral library in plain English; Claude works out the product, role and type of material.</li>
+          <li>"Find collateral" on any contact brings up material that fits their role and the account's products.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="next-h">
+    <div class="section-head">
+      <span class="label">Coming up</span>
+      <h2 id="next-h">What's next</h2>
+    </div>
+    <ol class="steps">
+      <li><span class="when">Now</span><div><strong>One-click email drafts with Claude</strong><span>Drafts written from the account, the contact's role and the chosen material, editable before anything is sent.</span></div></li>
+      <li><span class="when">Now</span><div><strong>Automatic quality checks</strong><span>Every change is checked automatically before anyone uses it.</span></div></li>
+      <li><span class="when">When inputs arrive</span><div><strong>Cortex connection and the Skott feed</strong><span>Real accounts, customer status and owners from Cortex; the live collateral library from Skott.</span></div></li>
+      <li><span class="when">Then</span><div><strong>Sending, broadcast and reporting</strong><span>Emails from each person's own mailbox, product updates to every account, and the team reports.</span></div></li>
+      <li><span class="when">Last</span><div><strong>Company URL</strong><span>The tool goes live for the team on Lyzr's Vercel account.</span></div></li>
+    </ol>
+  </section>
+
+  <section class="section waiting-table" aria-labelledby="waiting-h">
+    <div class="section-head">
+      <span class="label">Dependencies</span>
+      <h2 id="waiting-h">What we're waiting on</h2>
+      <p>These inputs unlock the features marked "waiting on inputs".</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Input</th><th>From</th><th>Unlocks</th></tr></thead>
+        <tbody>
+          <tr><td>Cortex SDK details and access for Helix and Compass</td><td>Cortex team</td><td>Real accounts, customer status and account owners</td></tr>
+          <tr><td>Skott API details, a key, and how collateral is stored</td><td>Skott owner</td><td>The live collateral library, and how material goes into emails</td></tr>
+          <tr><td>Final Microsoft sign-in settings</td><td>Azure and Supabase admins</td><td>The team signing in with their Lyzr accounts</td></tr>
+          <tr><td>Which mail system the team uses, and how cross-sell emails should send</td><td>Post-sales lead</td><td>Sending from each person's mailbox</td></tr>
+          <tr><td>Whether a broadcast or a routine email wins in the same month</td><td>Post-sales lead</td><td>Global broadcast</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="section" aria-labelledby="decisions-h">
+    <div class="section-head">
+      <span class="label">Settled</span>
+      <h2 id="decisions-h">Key decisions</h2>
+    </div>
+    <ul class="decisions">
+      <li><strong>Its own app,</strong> separate from Comms Tracker.</li>
+      <li><strong>Lyzr Microsoft sign-in</strong> for the team; outside accounts are refused.</li>
+      <li><strong>Access follows ownership:</strong> people see their accounts; the lead sees all.</li>
+      <li><strong>Emails send from people's own mailboxes,</strong> on the existing email setup.</li>
+      <li><strong>Collateral comes from Skott,</strong> and nothing is tracked when someone opens it.</li>
+      <li><strong>Claude reads searches and writes drafts;</strong> people review before anything is sent.</li>
+      <li><strong>Built in phases,</strong> each reviewed before the next begins.</li>
+      <li><strong>Hosted on Lyzr's Vercel account</strong> as the final step.</li>
+    </ul>
+  </section>
+
+  <section class="section" aria-labelledby="timeline-h">
+    <div class="section-head">
+      <span class="label">Estimate</span>
+      <h2 id="timeline-h">Timeline</h2>
+      <p>From 10 September 2026, assuming the inputs above arrive within a few days of being asked.</p>
+    </div>
+    <div class="timeline">
+      <div><span class="label">Usable without sending</span><span class="span">4–6 weeks</span><span class="what">Real data, targets, collateral and drafts.</span></div>
+      <div><span class="label">First emails sent</span><span class="span">Week 6–7</span><span class="what">From connected mailboxes, with limits enforced.</span></div>
+      <div><span class="label">Everything built</span><span class="span">8–10 weeks</span><span class="what">Broadcast and reporting included.</span></div>
+    </div>
+  </section>
+
+  <p class="footer">
+    Status as of 10 September 2026. Built features are tested against the live database
+    with sample accounts. The full list of all 48 features, with IDs for walkthroughs, is
+    in the Post-Sales Outreach feature list.
+  </p>
+</main>
+
+<script>
+(function () {
+  var tip = document.createElement("div");
+  tip.className = "tip";
+  tip.hidden = true;
+  tip.setAttribute("role", "tooltip");
+  document.body.appendChild(tip);
+
+  function show(el, x, y) {
+    tip.textContent = el.getAttribute("data-tip");
+    tip.style.left = x + "px";
+    tip.style.top = y + "px";
+    tip.hidden = false;
+  }
+  function hide() { tip.hidden = true; }
+
+  document.querySelectorAll("[data-tip]").forEach(function (el) {
+    el.addEventListener("pointermove", function (e) { show(el, e.clientX, e.clientY); });
+    el.addEventListener("pointerleave", hide);
+    el.addEventListener("focus", function () {
+      var r = el.getBoundingClientRect();
+      show(el, r.left + r.width / 2, r.top);
+    });
+    el.addEventListener("blur", hide);
+  });
+  window.addEventListener("scroll", hide, { passive: true });
+})();
+</script>

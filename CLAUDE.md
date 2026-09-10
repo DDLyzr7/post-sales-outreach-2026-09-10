@@ -217,6 +217,18 @@ phase's open questions before writing code that depends on them.
       Restart commands are under "Local servers" below.
     - **Next without waiting on anyone:** Phase 4 (Claude drafting) and CI. The Cortex
       sync and the Skott feed start when their answers arrive, and Vercel comes last.
+20. **Shareable status report** at `docs/status-report-2026-09-10.html`, published at
+    https://claude.ai/code/artifact/1838089d-55e2-4643-b0a1-55bf7ef3f488.
+    - **Contents:** 22 of 48 features built, where each phase stands, progress by area,
+      what works today, what's next, what we're waiting on, key decisions, and the
+      timeline estimate.
+    - **Audience:** written for people outside the build, so it leaves out internal
+      to-dos such as the sign-up hook.
+    - **Chart colours:** the progress bars use one mahogany ramp (built, then waiting,
+      then planned), validated as an ordinal ramp for light and dark. An earlier
+      green/amber/grey status palette failed the colour-vision and chroma checks.
+    - **Keep it current:** for the next report, copy the file with a new date and republish
+      it. Keep its numbers in step with the feature list.
 
 **Priority order the user follows, with status (2026-09-10):**
 
@@ -368,6 +380,7 @@ src/lib/db/collateral.ts  search_collateral RPC, plus the contact a search is fo
 src/components/         ui · account-status-header · contact-pane · owner-forms (client) ·
                         nav-links (client)
 docs/feature-list.html  walkthrough feature list (published artifact)
+docs/status-report-2026-09-10.html  shareable status report (published artifact)
 docs/ui-prototype.html  Phase 1 clickable mockup, pre-brand palette
 comms-tracker/          SEPARATE inherited app — see the section at the bottom
 ```
