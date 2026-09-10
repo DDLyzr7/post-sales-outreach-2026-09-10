@@ -236,15 +236,12 @@ first thing to run.
 
 **Blocking the integrations track (and real data):**
 
-1. **Helix and Compass access.** The app has no screens to create accounts or contacts,
-   so real data needs a sync.
-   - Helix is Cortex, and it has a working API. The inherited Comms Tracker already
-     reads it.
-   - Nothing is known about Compass yet.
-   - Still to confirm:
-     - Can this app use the same Cortex key?
-     - Should Cortex's project manager become the account owner?
-     - Where does customer status (existing or churned) come from?
+1. **Cortex access.** The app has no screens to create accounts or contacts, so real
+   data needs a sync from Cortex. Its subtools each have their own endpoint through the
+   Cortex SDK:
+   - **Helix** holds accounts and their status.
+   - **Compass** holds owner info and the account mapping.
+   - We're waiting on SDK docs, access, and field details from the Cortex team.
 
 **Needed before Phase 3's Skott connector:**
 

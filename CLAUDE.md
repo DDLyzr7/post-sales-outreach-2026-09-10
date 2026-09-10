@@ -41,7 +41,7 @@ global broadcast.
 | 5 — sending: warm and cold paths, cap and opt-outs enforced, delivery tracking | not started. Sends through users' existing mailboxes; mail system and cold-path handling to confirm |
 | 6 — global broadcast to all accounts | not started. Needs the priority rule |
 | 7 — reporting: outreach consistency, account coverage, relevant material | not started |
-| Track — integrations: Helix (Cortex) and Compass sync, leadership enrichment | blocked on answers |
+| Track — integrations: Cortex sync (Helix: accounts and status; Compass: owners and account mapping), leadership enrichment | waiting on Cortex SDK docs and access |
 
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
 phase's open questions before writing code that depends on them.
@@ -132,6 +132,12 @@ phase's open questions before writing code that depends on them.
       the user runs the CLI link and push (both interactive), then I run
       `db:seed-users` and `db:verify-rls`, and they paste `seed.sql` in the SQL editor
       (no psql here).
+15. **Cortex answer from Krish (Cortex team).** Helix (accounts and status) and Compass
+    (owner info and account mapping) are separate Cortex subtools, each with its own
+    endpoint through the Cortex SDK. This corrects "Helix is Cortex". Krish asked what
+    we need, so I drafted the reply for the user (open question 1). The Cortex sync
+    becomes P1's first real-data step: Helix fills accounts and lifecycle, and Compass
+    fills owners.
 
 **Priority order the user will follow:**
 
@@ -319,18 +325,27 @@ a mockup affordance, not a pattern to copy into the app.
 
 **Blocking the integrations track, and therefore real data:**
 
-1. **Helix and Compass access.** There is still no way to get real accounts in: by
-   design the app has no screens to create accounts or contacts.
-   - **Helix is Cortex, and it has a working API** (`comms-tracker/lib/adapters/cortex.ts:10`).
-     Base URL `https://applied-ai.lyzr.app`, endpoints `/api/v3/workspace` and
-     `/api/v3/projects`, authenticated with a workspace gateway key. Its docs are at
-     `NeuralgoLyzr/lyzr-PSA/docs/external-api.md`.
-   - **Compass isn't mentioned anywhere in `comms-tracker/`.** Don't assume it is HubSpot.
-   - **Still to confirm:**
-     - Can this app use the same Cortex key?
-     - Should Cortex's project manager become the account owner?
-     - Where does existing/churned come from? Cortex doesn't obviously carry it; Comms
-       Tracker gets customer status from HubSpot.
+1. **Cortex access (Helix and Compass).** There is still no way to get real accounts in:
+   by design the app has no screens to create accounts or contacts.
+   - **Confirmed 2026-09-10 by Krish (Cortex team):** Cortex is the umbrella. Its
+     subtools each have their own endpoint, bound through the Cortex SDK.
+     - **Helix** holds accounts and their status, so it is the source for `account` rows
+       and `lifecycle_status`.
+     - **Compass** holds owner info and the account mapping, so it is the source for
+       `account_assignment` (owners matched to `app_user` by email).
+   - **Correction:** earlier notes said "Helix is Cortex". That was wrong; Helix is one
+     Cortex subtool. Comms Tracker's adapter (`comms-tracker/lib/adapters/cortex.ts`)
+     calls `https://applied-ai.lyzr.app` `/api/v3/workspace` and `/api/v3/projects`
+     with a workspace gateway key (docs: `NeuralgoLyzr/lyzr-PSA/docs/external-api.md`).
+     Which subtool that is, and whether it's the SDK's API, is still unknown.
+   - **Asked Krish for:**
+     - SDK and docs.
+     - Per-subtool endpoints and auth.
+     - Helix account fields and the full list of status values.
+     - Compass owner fields (email, role, primary) and how it joins to Helix.
+     - Incremental sync, and how deletes and merges show up.
+     - A sample payload from each.
+     - OK to store a copy.
 
 **Needed before Phase 3's Skott connector:**
 

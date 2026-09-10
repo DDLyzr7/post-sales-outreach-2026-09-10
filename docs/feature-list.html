@@ -594,8 +594,8 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
           <table>
             <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
             <tbody>
-              <tr data-status="input"><td class="id">IN-01</td><td class="what"><strong>Helix sync</strong><span>Accounts, projects and contacts from Helix, which is Cortex. Its API exists, and Comms Tracker already reads it.</span><em>Needed before real accounts appear: the app has no screen to create accounts or contacts. Confirm this app can use the same Cortex key.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
-              <tr data-status="input"><td class="id">IN-02</td><td class="what"><strong>Compass sync</strong><span>Accounts and customer status from Compass.</span><em>Does Compass have an API?</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="input"><td class="id">IN-01</td><td class="what"><strong>Helix sync</strong><span>Accounts and their customer status from Helix, one of the Cortex subtools, through its own endpoint in the Cortex SDK.</span><em>Needed before real accounts appear: the app has no screen to create accounts. Waiting on SDK docs and access.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="input"><td class="id">IN-02</td><td class="what"><strong>Compass sync</strong><span>Who owns each account, and how Compass accounts map to Helix accounts. Another Cortex subtool with its own endpoint.</span><em>Waiting on SDK docs and access.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
               <tr data-status="planned"><td class="id">IN-03</td><td class="what"><strong>Leadership enrichment</strong><span>Find CHRO, CMO and CFO contacts at accounts where we don't sell to that team yet.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
             </tbody>
           </table>
@@ -643,11 +643,11 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
           <h3>Needs an answer</h3>
           <ul>
             <li><span class="blocks">Blocks CL-04 &middot; phase 3</span><strong>Skott API docs and a key</strong><span>Which endpoints list collateral, how they're tagged, and how to authenticate.</span></li>
-            <li><span class="blocks">Blocks IN-01, IN-02</span><strong>Helix access, and does Compass have an API?</strong><span>Helix is Cortex and has an API. Nothing is known about Compass yet.</span></li>
+            <li><span class="blocks">Blocks IN-01, IN-02</span><strong>Cortex SDK docs and access</strong><span>Helix (accounts, status) and Compass (owners, account mapping) each have their own endpoint. Asked the Cortex team for docs, keys and field details.</span></li>
             <li><span class="blocks">Blocks phase 5</span><strong>Warm mailbox</strong><span>Send from each owner's own mailbox, or from one shared post-sales address?</span></li>
             <li><span class="blocks">Blocks phase 5</span><strong>Cold sending provider</strong><span>Which service sends from the bought outbound domains.</span></li>
             <li><span class="blocks">Blocks phase 6</span><strong>Broadcast vs routine priority</strong><span>The placeholder says broadcast wins and routine email waits 30 days. Confirm or change.</span></li>
-            <li><span class="blocks">Shapes TG-04</span><strong>Where "churned" comes from</strong><span>Phase 2 lets the lead set it by hand, and a Helix or Compass sync can take over later.</span></li>
+            <li><span class="blocks">Shapes TG-04</span><strong>Which Helix statuses mean churned</strong><span>Helix holds account status. Still to learn which values mean existing, churned and prospect. Until the sync lands, the lead sets it by hand.</span></li>
             <li><span class="blocks">Open</span><strong>What happens to Comms Tracker</strong><span>It is live today. Retire it, merge it in, or keep both once this ships?</span></li>
           </ul>
         </div>
