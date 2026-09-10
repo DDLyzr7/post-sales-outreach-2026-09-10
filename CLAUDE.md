@@ -110,6 +110,28 @@ phase's open questions before writing code that depends on them.
       takes about 4–6 weeks, and the first real sends land around week 6–7.
     - **Still open:** which mail system, and how to handle cold emails (open questions 3
       and 4).
+14. **Put Post-Sales Outreach under git.** The user chose **a new repo named with today's
+    date**, separate from Comms Tracker's.
+    - **Local repo:** `git init -b main` in this folder, with identity
+      `Deepankar Dimri <deepankar.dimri@lyzr.com>` set for this repo only.
+    - **First commit:** `0a8c8cd` "Post-Sales Outreach: phases 1 and 2", 58 files.
+    - **`.gitignore` fixes:**
+      - `!.env.example`, because `.env*` had been hiding the template the setup steps
+        tell you to copy.
+      - `/comms-tracker/`, because it is a separate repo.
+    - **Checked before committing:** no `.env.local`, no secrets, nothing from
+      `comms-tracker/`, and no literal secrets in `supabase/config.toml`.
+    - **SSH:** a second deploy key, `~/.ssh/id_ed25519_post_sales` (no passphrase,
+      fingerprint `SHA256:SxvKT9HSIuDOhcYEWkU8jvSUgjRf6QJ9LzdIeUfgLRc`). A host alias in
+      `~/.ssh/config`, `Host github-post-sales`, uses that key, so the remote will be
+      `git@github-post-sales:DDLyzr7/<repo>.git`. GitHub allows a key on only one repo,
+      and `~/.ssh/id_ed25519` belongs to `Post-Sales-Comms-Tool`.
+    - **Not pushed yet.** Waiting on the user to create the empty repo (suggested name
+      `post-sales-outreach-2026-09-10`) and add the key with write access.
+    - **Supabase:** gave the user detailed setup steps. Once `.env.local` has real keys:
+      the user runs the CLI link and push (both interactive), then I run
+      `db:seed-users` and `db:verify-rls`, and they paste `seed.sql` in the SQL editor
+      (no psql here).
 
 **Priority order the user will follow:**
 
