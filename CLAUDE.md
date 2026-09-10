@@ -10,7 +10,7 @@ Setup, seed users and the full data-model rationale live in `README.md`. This fi
 the working guide: current state, invariants, and what not to break.
 
 The walkthrough feature list is `docs/feature-list.html`, published at
-https://claude.ai/code/artifact/63eeac62-b178-4065-8831-366c3f2171c7. It has 46 features,
+https://claude.ai/code/artifact/63eeac62-b178-4065-8831-366c3f2171c7. It has 48 features,
 each with an ID, status and phase. When a phase lands, update its statuses and counts,
 then republish from the same file path.
 
@@ -22,7 +22,7 @@ the two codebases apart, and don't carry either one's invariants across without 
 
 _Last updated 2026-09-10._
 
-## Status — Phases 1 and 2 built, both awaiting review
+## Status — Phases 1–2 built, Phase 3 search and Microsoft sign-in built; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -205,21 +205,24 @@ phase's open questions before writing code that depends on them.
       Azure provider is off, and so is the sign-up hook: a non-Lyzr test account could be
       created (it was deleted). Email sign-ups stay open until the hook is on.
 
-**Priority order the user will follow:**
+**Priority order the user follows, with status (2026-09-10):**
 
-| Stage | Scope |
-|---|---|
-| **P0** | Git repo for the root app; Supabase project, then run it and review Phases 1–2; Comms Tracker leak fix; the answers |
-| **P1** | Cortex sync; customer-status source; Lyzr SSO; deploy and CI |
-| **P2** | Skott connector; collateral search; trackable links |
-| **P3** | Claude drafting |
-| **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; tracking |
-| **P5** | Global broadcast |
-| **P6** | Reporting |
-| **P7** | Compass; enrichment; Comms Tracker's future |
+| Stage | Scope | Status |
+|---|---|---|
+| **P0** | Git repo for the root app; Supabase project, run it, review Phases 1–2; Comms Tracker leak fix; the answers | Repo and live Supabase **done**. User review of Phases 1–3 and the Comms Tracker housekeeping still open |
+| **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI not started. Hosting on Vercel comes **last** |
+| **P2** | Skott connector; collateral search; collateral in emails | Search **built**. Skott feed waits on API docs. Collateral in emails parked until Skott |
+| **P3** | Claude drafting | Not started. Nothing blocks it |
+| **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | Not started. Needs the mail system and cold-path answers |
+| **P5** | Global broadcast | Not started. Needs the priority rule |
+| **P6** | Reporting | Not started |
+| **P7** | Compass; enrichment; Comms Tracker's future | Waiting on answers |
 
-**Stopped for review after Phase 2.** Next is Phase 3 (collateral search) or the Cortex
-sync, whichever the user picks.
+**Stopped for review after Phase 3's search.**
+- **Next when answers arrive:** the Cortex sync once Krish replies, and the Skott feed once
+  its API docs arrive.
+- **Can start any time:** Phase 4 (Claude drafting) and CI, since neither is blocked.
+- **Last:** Vercel hosting on the company account.
 
 **Waiting on the user:**
 - **Post-Sales Outreach:** switch on the Before User Created hook now (email sign-ups stay
@@ -399,6 +402,8 @@ same goes for `/team`'s `notFound()` for non-admins and the hidden nav link.
   - **API key:** Comms Tracker's Anthropic key, copied into `.env.local`.
 - **Nobody edits collateral in the app until Skott is connected.** Until then the library
   holds the sample collateral.
+- **Hosting is Vercel, on Lyzr's company account, as the last step** (2026-09-10). The app
+  stays on localhost until the features are in.
 - **Lifecycle values are `existing | churned | prospect`.** A friend account is a
   prospect with `is_friend_account = true`. The flag stays because routing reads it.
 - **Sign-in is Microsoft, Lyzr accounts only** (2026-09-10).

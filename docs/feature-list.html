@@ -339,7 +339,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         <li><a href="#broadcast">Global broadcast <span class="n">4</span></a></li>
         <li><a href="#reporting">Reporting <span class="n">5</span></a></li>
         <li><a href="#integrations">Data and integrations <span class="n">3</span></a></li>
-        <li><a href="#governance">Governance <span class="n">3</span></a></li>
+        <li><a href="#governance">Governance <span class="n">5</span></a></li>
         <li><a href="#decisions">Decisions and questions <span class="n">15</span></a></li>
       </ol>
     </nav>
@@ -363,10 +363,10 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         leaders we don't sell to yet: CHRO, CMO, CFO.
       </p>
       <dl class="facts">
-        <div><dt class="label">Features</dt><dd>46</dd></div>
+        <div><dt class="label">Features</dt><dd>48</dd></div>
         <div><dt class="label">Built</dt><dd>22 <small>phases 1 to 3</small></dd></div>
         <div><dt class="label">Building next</dt><dd>0 <small>waiting on Skott</small></dd></div>
-        <div><dt class="label">Waiting on answers</dt><dd>7 <small>of 24 still to build</small></dd></div>
+        <div><dt class="label">Waiting on answers</dt><dd>7 <small>of 26 still to build</small></dd></div>
       </dl>
     </header>
 
@@ -428,10 +428,10 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
 
     <div class="filter" role="group" aria-label="Filter features by status">
       <span class="label">Show</span>
-      <button type="button" data-filter="all" aria-pressed="true">All <span class="n">46</span></button>
+      <button type="button" data-filter="all" aria-pressed="true">All <span class="n">48</span></button>
       <button type="button" data-filter="built" aria-pressed="false">Built <span class="n">22</span></button>
       <button type="button" data-filter="next" aria-pressed="false">Building next <span class="n">0</span></button>
-      <button type="button" data-filter="planned" aria-pressed="false">Planned <span class="n">17</span></button>
+      <button type="button" data-filter="planned" aria-pressed="false">Planned <span class="n">19</span></button>
       <button type="button" data-filter="input" aria-pressed="false">Needs input <span class="n">7</span></button>
     </div>
 
@@ -606,7 +606,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
       <section id="governance" class="area" aria-labelledby="governance-h">
         <div class="section-head">
           <h2 id="governance-h">Governance</h2>
-          <p>The rules that keep outreach owned, capped and auditable.</p>
+          <p>The rules and plumbing that keep outreach owned, capped, auditable and running.</p>
         </div>
         <div class="table-wrap">
           <table>
@@ -615,6 +615,8 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
               <tr data-status="built"><td class="id">GV-01</td><td class="what"><strong>Rules stored as data</strong><span>The cap, send-path routing, broadcast priority and staleness thresholds are settings in <code>app_policy</code>. Changing one is an edit, not a release.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
               <tr data-status="built"><td class="id">GV-02</td><td class="what"><strong>Audit trail</strong><span>Every business record stamps who created it and who last changed it. Deletes are soft, so nothing disappears.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
               <tr data-status="built"><td class="id">GV-03</td><td class="what"><strong>Full email record</strong><span>Each email keeps its full body alongside the template version it came from.</span></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">1</td><td class="asked">Brief</td></tr>
+              <tr data-status="planned"><td class="id">GV-04</td><td class="what"><strong>Automatic checks on GitHub</strong><span>Every push is type-checked, linted and built, and the SQL is parse-checked, before anyone runs it.</span></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">Track</td><td class="asked">10 Sep</td></tr>
+              <tr data-status="planned"><td class="id">GV-05</td><td class="what"><strong>Hosted on Vercel</strong><span>A real URL for the team, deployed from the GitHub repo on Lyzr's company Vercel account.</span><em>The last step, once the features are in.</em></td><td class="status"><span class="chip planned">Planned</span></td><td class="phase-col">Last</td><td class="asked">10 Sep</td></tr>
             </tbody>
           </table>
           <p class="empty-note">No features in this area match the filter.</p>
