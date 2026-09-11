@@ -1,8 +1,51 @@
 import Link from "next/link";
+import { StartDraftForm } from "@/components/draft-forms";
 import { Badge, EmptyState, RELATIONSHIP_TONE } from "@/components/ui";
 import { FUNCTION_LABEL, SEND_PATH_LABEL } from "@/lib/format";
-import { resolveSendPath, type Policies } from "@/lib/policy";
-import type { Contact, CrossSellIntro, SuggestedCollateral } from "@/lib/types";
+import { emailTypeFor, resolveSendPath, type Policies } from "@/lib/policy";
+import type { Contact, CrossSellIntro, DraftSummary, SuggestedCollateral } from "@/lib/types";
+
+function DraftAction({
+  contact,
+  drafts,
+  viewerId,
+}: {
+  contact: Contact;
+  drafts: DraftSummary[];
+  viewerId: string;
+}) {
+  const mine = drafts.find((d) => d.sender_id === viewerId);
+  const others = drafts.filter((d) => d.sender_id !== viewerId);
+
+  return (
+    <>
+      {mine ? (
+        <Link
+          href={`/drafts/${mine.id}`}
+          className="rounded-md border border-line-strong px-2.5 py-1 text-xs font-medium hover:border-accent"
+        >
+          {mine.status === "approved" ? "Open ready email" : "Open your draft"}
+        </Link>
+      ) : contact.is_opted_out ? (
+        <button
+          type="button"
+          disabled
+          title="This contact opted out, so nobody can email them."
+          className="cursor-not-allowed rounded-md border border-line px-2.5 py-1 text-xs font-medium text-muted"
+        >
+          Opted out
+        </button>
+      ) : (
+        <StartDraftForm accountId={contact.account_id} contactId={contact.id} />
+      )}
+      {others.map((draft) => (
+        <Link key={draft.id} href={`/drafts/${draft.id}`} className="text-[11px] text-muted hover:text-accent">
+          {draft.sender_name} has a {draft.status === "approved" ? "ready email" : "draft"}
+        </Link>
+      ))}
+    </>
+  );
+}
 
 function ContactRow({
   contact,
@@ -10,24 +53,19 @@ function ContactRow({
   intro,
   policies,
   isFriendAccount,
+  drafts,
+  viewerId,
 }: {
   contact: Contact;
   collateral: SuggestedCollateral[];
   intro: CrossSellIntro | undefined;
   policies: Policies;
   isFriendAccount: boolean;
+  drafts: DraftSummary[];
+  viewerId: string;
 }) {
-  // A friend account is not a customer yet, so even its pane-1 contacts get the
-  // friend-account type - which the routing policy sends down the cold path.
-  // Without this, an engaged contact at a friend account would route warm and
-  // put a non-customer conversation on our real sending domain.
-  const emailType = isFriendAccount
-    ? "friend_account"
-    : contact.type === "engaged"
-      ? "product_update"
-      : "cross_sell_intro";
   const sendPath = resolveSendPath(policies.sendPathRouting, {
-    email_type: emailType,
+    email_type: emailTypeFor(contact.type, isFriendAccount),
     contact_type: contact.type,
   });
 
@@ -64,14 +102,7 @@ function ContactRow({
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">
-          <button
-            type="button"
-            disabled
-            title="Claude drafting arrives in phase 4, sending in phase 5."
-            className="cursor-not-allowed rounded-md border border-line px-2.5 py-1 text-xs font-medium text-muted"
-          >
-            Compose
-          </button>
+          <DraftAction contact={contact} drafts={drafts} viewerId={viewerId} />
           <Link
             href={`/collateral?account=${contact.account_id}&contact=${contact.id}`}
             className="text-[11px] font-medium text-accent hover:underline"
@@ -134,6 +165,8 @@ export function ContactPane({
   introByContact,
   policies,
   isFriendAccount,
+  draftsByContact,
+  viewerId,
 }: {
   variant: "engaged" | "committee";
   contacts: Contact[];
@@ -141,6 +174,8 @@ export function ContactPane({
   introByContact: Map<string, CrossSellIntro>;
   policies: Policies;
   isFriendAccount: boolean;
+  draftsByContact: Map<string, DraftSummary[]>;
+  viewerId: string;
 }) {
   const engaged = variant === "engaged";
 
@@ -170,6 +205,8 @@ export function ContactPane({
               intro={introByContact.get(contact.id)}
               policies={policies}
               isFriendAccount={isFriendAccount}
+              drafts={draftsByContact.get(contact.id) ?? []}
+              viewerId={viewerId}
             />
           ))}
         </ul>

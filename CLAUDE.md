@@ -20,9 +20,9 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-10._
+_Last updated 2026-09-11._
 
-## Status — Phases 1–2 built, Phase 3 search and Microsoft sign-in built; all awaiting review
+## Status — Phases 1–2 and 4 built, Phase 3 search and Microsoft sign-in built; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -37,7 +37,7 @@ global broadcast.
 | 1 — foundation: schema, auth, RLS, read-only two-pane view | **done, unreviewed** |
 | 2 — accounts and targeting: lifecycle, My targets, Team coverage, owner assignment | **done, unreviewed** |
 | 3 — collateral search: natural-language search, Skott API feed | **search built, unreviewed**; the Skott feed waits on its API docs and a key; how collateral goes into emails is parked until Skott's data shape is known |
-| 4 — one-click drafting with Claude, collateral in drafts, pre-send check | not started |
+| 4 — one-click drafting with Claude, collateral in drafts, pre-send check | **done, unreviewed** (2026-09-11). Collateral is named in drafts, not linked, until Skott |
 | 5 — sending: warm and cold paths, cap and opt-outs enforced, delivery tracking | not started. Sends through users' existing mailboxes; mail system and cold-path handling to confirm |
 | 6 — global broadcast to all accounts | not started. Needs the priority rule |
 | 7 — reporting: outreach consistency, account coverage, relevant material | not started |
@@ -47,10 +47,11 @@ global broadcast.
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
 phase's open questions before writing code that depends on them.
 
-### Verification state (2026-09-10)
+### Verification state (2026-09-11)
 
 - **Build:** `npx tsc --noEmit`, `npx eslint .` and `npx next build` all pass. Routes:
-  `/`, `/accounts/[id]`, `/targets`, `/team`, `/collateral`, `/login`, `/auth/callback`.
+  `/`, `/accounts/[id]`, `/targets`, `/team`, `/collateral`, `/drafts`, `/drafts/[id]`,
+  `/login`, `/auth/callback`.
 - **Signed-in screens:** checked on the dev server (`:3001`) by signing in as the lead and
   as Riya and fetching each page from the server.
   - **The lead:** `/`, `/targets`, `/team` and `/accounts/[id]` all render with the right
@@ -58,12 +59,12 @@ phase's open questions before writing code that depends on them.
   - **Riya:** her dashboard shows only her 3 accounts. `/team` and another owner's
     account return 404, and her nav hides Team coverage.
   - The server log has no errors. The user hasn't clicked through in a browser yet.
-- **SQL:** all 10 SQL files (9 migrations plus the seed) parse with libpg_query, using
+- **SQL:** all 11 SQL files (10 migrations plus the seed) parse with libpg_query, using
   pglast 8.3 in a scratchpad venv. To recreate it:
   `python3 -m venv <dir> && <dir>/bin/pip install pglast`. pglast 8.4 fails to build
   on this Mac's Python 3.9, but 8.3 installs from a wheel.
 - **Live Supabase project**, created by the user in the dashboard:
-  - All 9 migrations are applied (`npx supabase db push --db-url … --yes`).
+  - All 10 migrations are applied (`npx supabase db push --db-url … --yes`).
   - `npm run db:seed-users` created the 4 users.
   - `db push --db-url … --include-seed --yes` loaded `seed.sql`
     (`supabase/config.toml` now has `[db.seed]`).
@@ -74,6 +75,31 @@ phase's open questions before writing code that depends on them.
       address.
     - The lead sees all 8 accounts.
     - The anon key sees nothing.
+    - **Drafting guards (2026-09-11), 15 checks:** an owner can save a draft; a duplicate
+      open draft, a faked send, marking a draft sent, editing sent history, drafting on
+      another owner's account, writing under a teammate's name, and addressing a contact on
+      another account are all refused. A co-owner can't edit the draft; marking ready stamps
+      the author; a ready email can't be edited; drafts don't change the monthly count;
+      discarded stays discarded; an opted-out contact's email can't be marked ready; an
+      owner can't clear an opt-out. Test rows are cleaned up.
+- **Phase 4 end to end (2026-09-11),** through the real server actions on the dev server
+  with real Claude calls, as Riya and Elena: Draft with Claude (8–11 s) redirects to the
+  draft; Claude's review (about 6 s) is stored; mark ready is refused while a `[[marker]]`
+  is left and works once it's filled; the review shows as out of date after an edit; the
+  co-owner sees a read-only view; the Drafts list, a cold draft with a note, and discard all
+  work. A second run with `ANTHROPIC_API_KEY` blank checked the template fallback. The
+  scripts were scratchpad-only (not in the repo); the test drafts were deleted.
+  - **To rebuild that test:**
+    1. Sign in with `@supabase/ssr` `createServerClient` and an in-memory cookie jar, then
+       send the jar as the `cookie` header.
+    2. Wait about 1.5 s after sign-in (see entry 22).
+    3. GET the page and collect the target `<form>`'s inputs, including React's hidden
+       `$ACTION_*` fields.
+    4. POST them as multipart to the same URL with `origin: http://localhost:3001` and
+       `redirect: "manual"`.
+    - A form whose action is a client-side closure has no action id and returns "Failed to
+      find Server Action". That was the discard bug.
+    - Start the dev server with `ANTHROPIC_API_KEY=` (blank) to exercise the fallback.
 
 ## Progress log
 
@@ -263,40 +289,88 @@ phase's open questions before writing code that depends on them.
     - **User preference:** for documents to share, deliver the plain format asked for,
       quickly, without extra rendering or verification steps.
 
-**Priority order the user follows, with status (2026-09-10):**
+**2026-09-11:**
+
+22. **Built Phase 4, one-click drafting.** The user's choices: drafts are saved in the app;
+    Claude writes from the template, past emails to the account, the collateral library and
+    an optional free-text note; the pre-send check is rules plus Claude's review; owners
+    mark their own drafts ready with no approval step.
+    - **Migration `20260911000100_drafting.sql`,** pushed to the live project:
+      - `email_activity.draft_context` and `presend_review` (jsonb), and a partial unique
+        index allowing one open draft per contact per sender.
+      - `app.guard_email_activity_write`: signed-in users may only write their own
+        drafting-stage rows (see invariant 15).
+      - `app.guard_contact_opt_out`: only the lead can clear an opt-out.
+      - `app_policy.drafting_rules` (`recent_contact_warn_days: 14`).
+    - **Found and closed a Phase 1 gap:** before this, an owner could insert a `sent` row
+      through the REST API and fake contact with an account, and could clear a contact's
+      opt-out.
+    - **App:** "Draft with Claude" on each contact (with "Add a note for Claude"), `/drafts`
+      and `/drafts/[id]` (save, save and check with Claude, save and mark ready, back to
+      draft, redraft with a note, discard). Nav has Drafts.
+    - **Claude:** Opus 5, structured output, `fallbacks: "default"`. Drafting runs at effort
+      `medium`, the review at `low`. One shared client in `src/lib/ai/client.ts` (60 s
+      timeout; collateral search passes 20 s per request). The writer can only name
+      collateral from the list it's given and leaves `[[markers]]` for missing facts; the
+      brief leaves out ARR, health, renewal and enrichment details.
+    - **Prompt fixes after the first live run:** the brief now lists each product's target
+      roles (Tom in IT was getting a Spend Intelligence update), and drafts no longer
+      mention emails sent to other people at the account.
+    - **Refactor:** `emailTypeFor()` moved into `src/lib/policy.ts`, used by the contact
+      pane and the drafting actions.
+    - **Feature list:** EM-03, EM-04, EM-05 and SD-05 (renamed "Mark ready") are built;
+      26 built, 15 planned, 7 waiting on input. Republished at the same link.
+    - **Seen again:** right after a scripted sign-in, the first page request was redirected
+      to the login page once, then worked. Clock skew measured at under a second, so the
+      cause is still unknown. Same watch item as entry 17.
+    - **Committed** on `main` at the user's request (2026-09-11), with CLAUDE.md, the README
+      and the feature list. **Not pushed** to GitHub; local `main` is ahead of `origin/main`.
+23. **The user asked for the sample sign-in password.** All four sample users share
+    `PostSales!2026`, the documented default in `.env.example` and the README. The
+    `.env.local` value was confirmed to match by comparing it in code, without printing it.
+    These accounts are fictional and sign in by password on localhost only. Sample users:
+    - `pm@example.com`: Riya Kapoor, PM.
+    - `cal@example.com`: Marcus Webb, CAL.
+    - `csm@example.com`: Elena Ortiz, CSM.
+    - `lead@example.com`: Dana Whitfield, the post-sales lead.
+
+**Priority order the user follows, with status (2026-09-11):**
 
 | Stage | Scope | Status |
 |---|---|---|
-| **P0** | Git repo for the root app; Supabase project, run it, review Phases 1–2; Comms Tracker leak fix; the answers | Repo and live Supabase **done**. User review of Phases 1–3 and the Comms Tracker housekeeping still open |
+| **P0** | Git repo for the root app; Supabase project, run it, review Phases 1–2; Comms Tracker leak fix; the answers | Repo and live Supabase **done**. User review of Phases 1–4 and the Comms Tracker housekeeping still open |
 | **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI not started. Hosting on Vercel comes **last** |
 | **P2** | Skott connector; collateral search; collateral in emails | Search **built**. Skott feed waits on API docs. Collateral in emails parked until Skott |
-| **P3** | Claude drafting | Not started. Nothing blocks it |
+| **P3** | Claude drafting | **Built** 2026-09-11, awaiting review |
 | **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | Not started. Needs the mail system and cold-path answers |
 | **P5** | Global broadcast | Not started. Needs the priority rule |
 | **P6** | Reporting | Not started |
 | **P7** | Compass; enrichment; Comms Tracker's future | Waiting on answers |
 
-**Stopped for review after Phase 3's search.**
-- **Next when answers arrive:** the Cortex sync once Krish replies, and the Skott feed once
-  its API docs arrive.
-- **Can start any time:** Phase 4 (Claude drafting) and CI, since neither is blocked.
+**Stopped for review after Phase 4.**
+- **Next when answers arrive:** the Cortex sync once Krish replies, the Skott feed once its
+  API docs arrive, and Phase 5 sending once the mail system and cold path are decided.
+- **Can start any time:** CI (GitHub Actions: types, lint, build, SQL parse).
 - **Last:** Vercel hosting on the company account.
 
 **Waiting on the user:**
 - **Post-Sales Outreach:** switch on the Before User Created hook now (email sign-ups stay
   open until it is on), add the rest of the Microsoft sign-in settings (open question 8),
-  review Phases 1–3 in the browser at http://localhost:3001,
-  send Skott API docs and a key, and pass on the Cortex answers from Krish (open
+  review Phases 1–4 in the browser at http://localhost:3001 (sign in as
+  `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with
+  Claude), send Skott API docs and a key, and pass on the Cortex answers from Krish (open
   question 1).
+  - **Push Phase 4?** It's committed on `main` but not pushed to
+    `post-sales-outreach-2026-09-10`. The migration is already live on Supabase.
 - **Comms Tracker:**
   - Confirm the GitHub "Comms Tracker refresh" workflow is disabled.
   - OK to commit and push `comms-tracker/next.config.ts`. It's the only uncommitted
     change.
   - Decide on the live view leak.
 
-**Local servers:** none running. The system stopped both dev servers for low memory on
-2026-09-10. Restart Post-Sales Outreach with `npm run dev -- -p 3001`, and Comms Tracker
-with `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
+**Local servers:** Post-Sales Outreach was left running on `:3001` on 2026-09-11 for the
+user's review. Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
+`cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
 ## Commands
 
@@ -384,6 +458,24 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
       word matching.
     - `ANTHROPIC_API_KEY` is server-only. Never import that module into a client
       component.
+    - The same holds for drafting: `draft-email.ts` names collateral only from the ids it's
+      given, `draft-review.ts` picks flag kinds from an enum, and both return null on any
+      failure. Drafting then falls back to the template, and the review says Claude wasn't
+      available.
+15. **Signed-in users only ever write drafting-stage email.**
+    - `app.guard_email_activity_write` lets a JWT caller insert only `drafted` rows under
+      their own name, update only their own `drafted`/`approved` rows, and set status only
+      to `drafted`, `approved` or `cancelled`.
+    - It refuses every delivery field (`sent_at`, `provider`, `governor_decision`…), a
+      contact on a different account, and marking ready for an opted-out contact or one
+      with no email. It stamps `approved_by`/`approved_at` itself.
+    - A ready (`approved`) email can't be edited until it goes back to draft. `cancelled`
+      is final.
+    - **Phase 5 must write `queued`/`sent` from a job without a JWT subject** (like sync
+      jobs), and must resolve the send path and re-check the cap and opt-out at send time
+      rather than trust the draft's stored `send_path`.
+16. **Clearing an opt-out is the lead's call** (`app.guard_contact_opt_out`). Anyone can
+    record a new one.
 
 ## Layout
 
@@ -395,24 +487,32 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                         20260910000200 Microsoft sign-in: trusted profile fields,
                                        sign-up hook, sign_in_rules
                         20260910000300 collateral search: tsvector index, search_collateral()
+                        20260911000100 drafting: draft_context/presend_review, one open draft
+                                       per contact, email write guard, opt-out guard,
+                                       drafting_rules
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
 scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs ·
                         report-pdf.mjs (status report to an A4 PDF, sections kept whole)
 src/lib/supabase/       server.ts (JWT-bearing) · client.ts · proxy.ts
 src/lib/db/queries.ts   all reads; no owner filtering by design
-src/lib/policy.ts       reads app_policy; resolveSendPath()
+src/lib/policy.ts       reads app_policy; emailTypeFor() · resolveSendPath()
+src/lib/presend.ts      pre-send rules (pure) and the review digest
+src/lib/template.ts     template merge for the no-Claude fallback, [[placeholder]] detection
 src/lib/targeting.ts    My targets buckets: win back · going quiet · renewal · warm up ·
                         at cap · on track
 src/lib/providers/      SendProvider + EnrichmentProvider — interfaces only, nothing calls them
 src/app/(app)/          dashboard · accounts/[id] two-pane · targets · team (+ team/actions.ts) ·
-                        collateral (natural-language search)
+                        collateral (natural-language search) · drafts list · drafts/[id] editor
+                        (+ drafts/actions.ts)
 src/app/auth/callback/  Microsoft sign-in return: exchanges the PKCE code, errors go to /login
 src/lib/auth.ts         password-sign-in gate (localhost only), same-site redirects, origin
-src/lib/ai/             collateral-search.ts: Claude reads a request into search terms
+src/lib/ai/             client.ts (the one Anthropic client) · collateral-search.ts ·
+                        brief.ts (facts for drafting) · draft-email.ts · draft-review.ts
 src/lib/db/collateral.ts  search_collateral RPC, plus the contact a search is for
+src/lib/db/drafts.ts    drafting facts for a contact, open drafts, one draft with its context
 src/components/         ui · account-status-header · contact-pane · owner-forms (client) ·
-                        nav-links (client)
+                        nav-links (client) · draft-forms (client)
 docs/feature-list.html  walkthrough feature list (published artifact)
 docs/status-report-2026-09-10.html  shareable status report (published artifact)
 docs/ui-prototype.html  Phase 1 clickable mockup, pre-brand palette
@@ -589,7 +689,9 @@ a mockup affordance, not a pattern to copy into the app.
 
 **Answered:** email content storage (full body plus template version pin). On 2026-09-10:
 build in Post-Sales Outreach, collateral as trackable links, send from the app, Skott via
-API, Lyzr brand.
+API, Lyzr brand. On 2026-09-11: drafts saved in the app; Claude drafts from the template,
+past emails, the collateral library and a note; the pre-send check is rules plus Claude's
+advisory review; owners mark their own drafts ready, with no approval step.
 
 ---
 

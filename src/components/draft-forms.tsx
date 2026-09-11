@@ -1,0 +1,217 @@
+"use client";
+
+import { useActionState, useState } from "react";
+import {
+  discardDraft, redraft, startDraft, updateDraft, type DraftActionState,
+} from "@/app/(app)/drafts/actions";
+
+const initial: DraftActionState = { error: null, notice: null };
+
+const FIELD =
+  "w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-sm outline-none focus:border-accent disabled:bg-surface-muted disabled:text-muted";
+const BUTTON =
+  "rounded-md border border-line-strong bg-surface px-3 py-1.5 text-xs font-medium hover:border-accent disabled:opacity-60";
+const PRIMARY =
+  "rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-60";
+
+function Feedback({ state }: { state: DraftActionState }) {
+  if (state.error) {
+    return (
+      <p role="alert" className="text-xs text-bad">
+        {state.error}
+      </p>
+    );
+  }
+  if (state.notice) {
+    return (
+      <p role="status" className="text-xs text-ok">
+        {state.notice}
+      </p>
+    );
+  }
+  return null;
+}
+
+/** "Draft with Claude" on a contact row, with an optional note for Claude. */
+export function StartDraftForm({ accountId, contactId }: { accountId: string; contactId: string }) {
+  const [state, formAction, pending] = useActionState(startDraft, initial);
+
+  return (
+    <form action={formAction} className="flex flex-col items-end gap-1">
+      <input type="hidden" name="account_id" value={accountId} />
+      <input type="hidden" name="contact_id" value={contactId} />
+      <button type="submit" disabled={pending} className={PRIMARY}>
+        {pending ? "Drafting..." : "Draft with Claude"}
+      </button>
+      <details className="text-right">
+        <summary className="cursor-pointer text-[11px] text-muted hover:text-accent">
+          Add a note for Claude
+        </summary>
+        <label className="sr-only" htmlFor={`note-${contactId}`}>Note for Claude</label>
+        <textarea
+          id={`note-${contactId}`}
+          name="instruction"
+          rows={3}
+          maxLength={500}
+          placeholder="e.g. mention the new approval workflow"
+          className="mt-1 w-56 rounded-md border border-line-strong bg-surface px-2 py-1 text-xs outline-none focus:border-accent"
+        />
+      </details>
+      {pending ? <p className="text-[11px] text-muted">Claude is writing. This takes a few seconds.</p> : null}
+      {state.error ? <p role="alert" className="max-w-56 text-right text-[11px] text-bad">{state.error}</p> : null}
+    </form>
+  );
+}
+
+type Intent = "save" | "review" | "ready" | "unready";
+
+const PENDING_LABEL: Record<Intent, string> = {
+  save: "Saving...",
+  review: "Claude is checking...",
+  ready: "Checking...",
+  unready: "Moving...",
+};
+
+/** Subject and body, with save, Claude's check and mark-ready. */
+export function DraftEditor({
+  draftId,
+  subject,
+  body,
+  from,
+  to,
+  ready,
+  version,
+}: {
+  draftId: string;
+  subject: string;
+  body: string;
+  from: string;
+  to: string;
+  ready: boolean;
+  /** Changes whenever the saved draft changes, so the fields reload. */
+  version: string;
+}) {
+  const [state, formAction, pending] = useActionState(updateDraft, initial);
+  const [intent, setIntent] = useState<Intent>("save");
+
+  const submit = (value: Intent, label: string, className: string) => (
+    <button
+      type="submit"
+      name="intent"
+      value={value}
+      disabled={pending}
+      onClick={() => setIntent(value)}
+      className={className}
+    >
+      {pending && intent === value ? PENDING_LABEL[value] : label}
+    </button>
+  );
+
+  return (
+    <form key={version} action={formAction} className="space-y-3">
+      <input type="hidden" name="draft_id" value={draftId} />
+
+      <dl className="grid gap-1 text-xs sm:grid-cols-[4rem_1fr]">
+        <dt className="text-muted">From</dt>
+        <dd className="font-mono">{from}</dd>
+        <dt className="text-muted">To</dt>
+        <dd className="font-mono">{to}</dd>
+      </dl>
+
+      <div>
+        <label htmlFor="draft-subject" className="text-[11px] font-medium uppercase tracking-wide text-muted">
+          Subject
+        </label>
+        <input
+          id="draft-subject"
+          name="subject"
+          defaultValue={subject}
+          maxLength={300}
+          disabled={ready}
+          className={`mt-1 ${FIELD}`}
+        />
+      </div>
+
+      <div>
+        <label htmlFor="draft-body" className="text-[11px] font-medium uppercase tracking-wide text-muted">
+          Body
+        </label>
+        <textarea
+          id="draft-body"
+          name="body"
+          defaultValue={body}
+          rows={16}
+          maxLength={20000}
+          disabled={ready}
+          className={`mt-1 font-sans leading-relaxed ${FIELD}`}
+        />
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        {ready ? (
+          <>
+            {submit("unready", "Back to draft", BUTTON)}
+            {submit("review", "Check with Claude", BUTTON)}
+          </>
+        ) : (
+          <>
+            {submit("ready", "Save and mark ready", PRIMARY)}
+            {submit("save", "Save", BUTTON)}
+            {submit("review", "Save and check with Claude", BUTTON)}
+          </>
+        )}
+      </div>
+      <Feedback state={state} />
+    </form>
+  );
+}
+
+/** Replace the draft with a fresh one from Claude, optionally with a new note. */
+export function RedraftForm({ draftId, instruction }: { draftId: string; instruction: string | null }) {
+  const [state, formAction, pending] = useActionState(redraft, initial);
+
+  return (
+    <form action={formAction} className="space-y-2">
+      <input type="hidden" name="draft_id" value={draftId} />
+      <label htmlFor="redraft-note" className="text-[11px] font-medium uppercase tracking-wide text-muted">
+        Note for Claude
+      </label>
+      <textarea
+        id="redraft-note"
+        name="instruction"
+        rows={3}
+        maxLength={500}
+        defaultValue={instruction ?? ""}
+        placeholder="e.g. shorter, and lead with the audit guide"
+        className="w-full rounded-md border border-line-strong bg-surface px-2 py-1.5 text-xs outline-none focus:border-accent"
+      />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={pending} className={BUTTON}>
+          {pending ? "Redrafting..." : "Redraft with Claude"}
+        </button>
+        <span className="text-[11px] text-muted">Replaces the subject and body, including your edits.</span>
+      </div>
+      <Feedback state={state} />
+    </form>
+  );
+}
+
+export function DiscardDraftButton({ draftId }: { draftId: string }) {
+  const [state, formAction, pending] = useActionState(discardDraft, initial);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        if (!window.confirm("Discard this draft? It can't be recovered.")) event.preventDefault();
+      }}
+      className="flex flex-col items-start gap-1"
+    >
+      <input type="hidden" name="draft_id" value={draftId} />
+      <button type="submit" disabled={pending} className="text-xs text-muted hover:text-bad disabled:opacity-60">
+        {pending ? "Discarding..." : "Discard draft"}
+      </button>
+      {state.error ? <p role="alert" className="text-[11px] text-bad">{state.error}</p> : null}
+    </form>
+  );
+}

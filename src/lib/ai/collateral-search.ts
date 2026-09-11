@@ -1,6 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
+import { anthropic, FALLBACK, logClaudeError, MODEL } from "@/lib/ai/client";
 import { COLLATERAL_TYPE_LABEL, FUNCTION_LABEL } from "@/lib/format";
 import type { BusinessFunction, CollateralSearchPlan, ProductOption } from "@/lib/types";
 
@@ -14,14 +14,8 @@ import type { BusinessFunction, CollateralSearchPlan, ProductOption } from "@/li
  * browser.
  */
 
-const MODEL = "claude-opus-5";
-
 const FUNCTIONS = Object.keys(FUNCTION_LABEL) as [BusinessFunction, ...BusinessFunction[]];
 const CONTENT_TYPES = Object.keys(COLLATERAL_TYPE_LABEL) as [string, ...string[]];
-
-const client = process.env.ANTHROPIC_API_KEY
-  ? new Anthropic({ maxRetries: 1, timeout: 20_000 })
-  : null;
 
 function planSchema(productKeys: string[]) {
   return z.object({
@@ -63,24 +57,25 @@ export async function planCollateralSearch(
   query: string,
   products: ProductOption[],
 ): Promise<CollateralSearchPlan | null> {
-  if (!client) return null;
+  if (!anthropic) return null;
   const productKeys = products.map((p) => p.key);
 
   try {
-    const response = await client.beta.messages.parse({
-      model: MODEL,
-      max_tokens: 16000,
-      // If Claude Opus 5 declines, the API re-runs the request on Anthropic's
-      // recommended fallback model instead of returning a refusal.
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
-      output_config: {
-        effort: "low",
-        format: zodOutputFormat(planSchema(productKeys)),
+    const response = await anthropic.beta.messages.parse(
+      {
+        model: MODEL,
+        max_tokens: 16000,
+        ...FALLBACK,
+        output_config: {
+          effort: "low",
+          format: zodOutputFormat(planSchema(productKeys)),
+        },
+        system: systemPrompt(products),
+        messages: [{ role: "user", content: query }],
       },
-      system: systemPrompt(products),
-      messages: [{ role: "user", content: query }],
-    });
+      // A search result page shouldn't wait as long as a draft does.
+      { timeout: 20_000 },
+    );
 
     if (response.stop_reason === "refusal" || !response.parsed_output) return null;
 
@@ -94,11 +89,7 @@ export async function planCollateralSearch(
     };
   } catch (error) {
     // Search still works without Claude; log so a bad key or an outage is visible.
-    if (error instanceof Anthropic.APIError) {
-      console.error(`collateral search: Claude returned ${error.status}: ${error.message}`);
-    } else {
-      console.error("collateral search: Claude unavailable:", error);
-    }
+    logClaudeError("collateral search", error);
     return null;
   }
 }

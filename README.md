@@ -5,8 +5,9 @@ client base: who the stakeholders are at each account, which accounts each perso
 should reach next, what collateral fits them, what has been sent recently, and how
 close the account is to its monthly cap.
 
-**Nothing in this build can send an email.** Phases 1 and 2 are read-only apart from two
-changes reserved for the post-sales lead: account owners and customer lifecycle.
+**Nothing in this build can send an email.** Owners can write drafts with Claude and mark
+them ready (Phase 4). Apart from that, the only changes are two reserved for the
+post-sales lead: account owners and customer lifecycle.
 
 Every feature, with its ID, status and phase, is listed in `docs/feature-list.html`
 (published walkthrough copy:
@@ -21,7 +22,7 @@ https://claude.ai/code/artifact/63eeac62-b178-4065-8831-366c3f2171c7).
 | Data model, migrations, seed data | `supabase/migrations/`, `supabase/seed.sql` |
 | Supabase Auth for the four users | `scripts/seed-users.mjs` |
 | **RLS enforcing account ownership** | `supabase/migrations/20260907000500_rls.sql` |
-| Two-pane account view, read-only | `src/app/(app)/accounts/[id]/page.tsx` |
+| Two-pane account view | `src/app/(app)/accounts/[id]/page.tsx` |
 | Owner dashboard with last-activity | `src/app/(app)/page.tsx` |
 
 Two things go beyond the literal Phase 1 scope because leaving them out would have
@@ -70,6 +71,29 @@ Every threshold is read from `app_policy`.
 - **Nothing is tracked** when someone opens collateral.
 - **Still to come:** the Skott feed, and how collateral goes into emails, both wait on
   Skott's API.
+
+## What Phase 4 delivers
+
+| Feature | Where it lives |
+| --- | --- |
+| **Draft with Claude** on every contact, with an optional note for Claude | `src/components/draft-forms.tsx`, `src/app/(app)/drafts/actions.ts` |
+| Claude writes from the template, the account's recent emails and the collateral library | `src/lib/ai/draft-email.ts`, `src/lib/ai/brief.ts` |
+| Draft editor: save, redraft, mark ready, discard | `src/app/(app)/drafts/[id]/page.tsx` |
+| **Pre-send check**: cap, opt-out, send path and sender, placeholders, recent contact, teammates' drafts | `src/lib/presend.ts` |
+| Claude's review of the wording (advice only) | `src/lib/ai/draft-review.ts` |
+| Drafts list | `src/app/(app)/drafts/page.tsx` |
+| Database guard on drafts and opt-outs | `supabase/migrations/20260911000100_drafting.sql` |
+
+- **Drafts live in `email_activity`** as `drafted` (being written), `approved` (the owner
+  marked it ready; there's no separate approval) or `cancelled` (discarded). They have no
+  `sent_at`, so they never count toward the cap or last activity.
+- **A signed-in user can only write their own drafts.** Postgres refuses any other status,
+  any delivery field, edits to sent email, and marking an opted-out contact's email ready.
+  `npm run db:verify-rls` checks each of these.
+- **Claude never invents specifics.** Where it lacks a fact, such as what shipped this
+  quarter, it leaves a `[[marker]]`, and the pre-send check won't mark the draft ready
+  until the owner fills it in.
+- **Works without Claude:** the draft is the template with the known facts filled in.
 
 A standalone clickable mockup of the Phase 1 screens is at `docs/ui-prototype.html`.
 Open it in a browser; no server is required. It predates the Lyzr brand.

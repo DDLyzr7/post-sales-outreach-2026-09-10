@@ -35,16 +35,20 @@ export type PriorityPolicy = {
 
 export type TargetingPolicy = { renewal_window_days: number };
 
+export type DraftingPolicy = { recent_contact_warn_days: number };
+
 export type Policies = {
   frequencyCap: FrequencyCapPolicy;
   staleness: StalenessPolicy;
   sendPathRouting: SendPathRoutingPolicy | null;
   priority: PriorityPolicy | null;
   targeting: TargetingPolicy;
+  drafting: DraftingPolicy;
 };
 
-const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting"> = {
+const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting" | "drafting"> = {
   targeting: { renewal_window_days: 90 },
+  drafting: { recent_contact_warn_days: 14 },
   frequencyCap: {
     max_sends_per_account_per_month: 2,
     warn_at_sends: 1,
@@ -67,6 +71,7 @@ export async function loadPolicies(supabase: SupabaseClient): Promise<Policies> 
     sendPathRouting: (byKey.get("send_path_routing") as SendPathRoutingPolicy) ?? null,
     priority: (byKey.get("broadcast_vs_routine_priority") as PriorityPolicy) ?? null,
     targeting: (byKey.get("targeting_rules") as TargetingPolicy) ?? FALLBACK.targeting,
+    drafting: (byKey.get("drafting_rules") as DraftingPolicy) ?? FALLBACK.drafting,
   };
 }
 
@@ -85,9 +90,24 @@ export const STALENESS_RANK: Record<Staleness, number> = {
 };
 
 /**
+ * The kind of routine email a contact gets. A friend account is not a customer
+ * yet, so even its engaged contacts get the friend-account type, which the
+ * routing policy sends down the cold path. Without this, an engaged contact at a
+ * friend account would route warm and put a non-customer conversation on our
+ * real sending domain.
+ */
+export function emailTypeFor(
+  contactType: "engaged" | "committee",
+  isFriendAccount: boolean,
+): "product_update" | "cross_sell_intro" | "friend_account" {
+  if (isFriendAccount) return "friend_account";
+  return contactType === "engaged" ? "product_update" : "cross_sell_intro";
+}
+
+/**
  * Resolves the send path from the routing policy rather than from a hardcoded
- * branch. Phase 3's send flow calls the same function; Phase 1 only displays
- * the answer, so the sender can see which path a compose would take.
+ * branch. The account page shows the answer, and drafts store it; Phase 5's send
+ * flow must resolve it again at send time rather than trust the stored value.
  */
 export function resolveSendPath(
   policy: SendPathRoutingPolicy | null,

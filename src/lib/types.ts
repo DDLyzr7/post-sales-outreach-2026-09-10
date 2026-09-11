@@ -97,6 +97,11 @@ export type CollateralHit = {
   score: number;
 };
 
+/** Collateral as a draft brief describes it. */
+export type CollateralFact = Pick<
+  CollateralHit, "collateral_id" | "title" | "summary" | "content_type" | "asset_url" | "product_names"
+>;
+
 /** A product, with what Claude needs to map a request onto it. */
 export type ProductOption = {
   key: string;
@@ -163,3 +168,67 @@ export type TeamMember = {
 };
 
 export type AccountProductRow = { product: { name: string } | null; status: string };
+
+/** What a draft was built from. Stored as email_activity.draft_context. */
+export type DraftContext = {
+  source: "claude" | "template";
+  model: string | null;
+  instruction: string | null;
+  collateral_ids: string[];
+  notes_for_owner: string[];
+  recent_email_count: number;
+  generated_at: string;
+};
+
+export type ReviewFlag = {
+  severity: "warn" | "info";
+  kind: "unsupported_claim" | "wrong_product" | "tone" | "sensitive_content"
+    | "repeats_recent_email" | "recipient_fit" | "other";
+  note: string;
+};
+
+/** Claude's advisory pre-send review. Stored as email_activity.presend_review. */
+export type DraftReview = {
+  /** Hash of the subject and body that were reviewed. */
+  digest: string;
+  reviewed_at: string;
+  summary: string;
+  flags: ReviewFlag[];
+};
+
+/** An open draft (drafted or marked ready), as lists show it. */
+export type DraftSummary = {
+  id: string;
+  account_id: string;
+  account_name: string;
+  contact_id: string;
+  contact_name: string;
+  contact_title: string | null;
+  sender_id: string;
+  sender_name: string;
+  email_type: EmailType;
+  send_path: SendPath;
+  status: "drafted" | "approved";
+  subject: string;
+  updated_at: string;
+};
+
+/** A sent email from the account's history, trimmed for Claude and the page. */
+export type PastEmail = {
+  subject: string;
+  body_text: string | null;
+  sent_at: string;
+  email_type: EmailType;
+  contact_id: string | null;
+  contact_name: string | null;
+  sender_name: string | null;
+};
+
+export type TemplateChoice = {
+  template_id: string;
+  template_version_id: string;
+  name: string;
+  version: number;
+  subject_template: string;
+  body_template: string;
+};
