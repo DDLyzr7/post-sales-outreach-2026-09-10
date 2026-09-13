@@ -404,6 +404,25 @@ from here.)
       ids. `MICROSOFT_CLIENT_SECRET` and `APOLLO_API_KEY` are still empty.
     - **Feature list:** 42 built, 2 planned (CL-06, GV-05), 4 waiting on input (CL-04,
       CL-05, IN-01, IN-02). Republished.
+    - **Committed and pushed** at the user's request: `1a33882` "Phases 5-7: sending,
+      broadcast, reporting; Apollo enrichment" (52 files; no `.env.local`, no secrets,
+      nothing from `comms-tracker/`). Local `main` matches `origin/main`. The push starts the
+      "Checks" workflow, which hasn't been looked at (no `gh` on this Mac).
+27. **The user asked for the sign-in password again.** It's `PostSales!2026` for all four
+    sample users (see entry 23), on the localhost password form only.
+28. **What's left to build (answered for the user, 2026-09-13).** 6 of 48 features, all
+    blocked outside the code:
+    - **IN-01 Helix sync and IN-02 Compass sync:** waiting on Krish's Cortex SDK docs and
+      access. **The most important,** because without them the app has only sample accounts
+      and no way to add real ones.
+    - **CL-04 Skott feed, CL-05 collateral in emails, CL-06 add collateral to an email:**
+      waiting on Skott's API docs and a key.
+    - **GV-05 Vercel hosting:** last, on Lyzr's company account.
+    - **Go-live setup (not features):** the Microsoft sign-in dashboard settings and the
+      sign-up hook (open question 8), the Azure mailbox settings (10), the Apollo key (11),
+      and promoting the real post-sales lead (9).
+    - **Suggested next step given to the user:** chase Krish for Cortex. If the Azure
+      mailbox settings land, test a real send from the user's own mailbox.
 
 **Priority order the user follows, with status (2026-09-13):**
 
@@ -426,12 +445,14 @@ from here.)
   and `/api/jobs/track`.
 
 **Waiting on the user:**
-- **Post-Sales Outreach:** switch on the Before User Created hook now (email sign-ups stay
-  open until it is on), add the rest of the Microsoft sign-in settings (open question 8),
-  review Phases 1–4 in the browser at http://localhost:3001 (sign in as
-  `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with
-  Claude), send Skott API docs and a key, and pass on the Cortex answers from Krish (open
-  question 1).
+- **Post-Sales Outreach:**
+  - **Sign-in:** switch on the Before User Created hook now (email sign-ups stay open until
+    it is on), and add the rest of the Microsoft sign-in settings (open question 8).
+  - **Review Phases 1–7** in the browser at http://localhost:3001: sign in as
+    `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with Claude.
+  - **Answers to pass on:** Skott API docs and a key, and the Cortex answers from Krish
+    (open question 1).
+  - **Promote the real post-sales lead** (open question 9).
   - **Check the first GitHub Actions run** of "Checks" on the repo's Actions tab.
   - **For live sending (open question 10):** on the Azure app, add the redirect URI
     `http://localhost:3001/mailbox/callback`, the delegated `Mail.Send`, `Mail.ReadBasic`,
@@ -447,7 +468,8 @@ from here.)
   - Decide on the live view leak.
 
 **Local servers:** Post-Sales Outreach was left running on `:3001` on 2026-09-13 for the
-user's review. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode). Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
+user's review. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode).
+Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
 ## Commands
