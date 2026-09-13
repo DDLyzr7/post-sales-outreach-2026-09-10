@@ -1,0 +1,51 @@
+# Types, lint, build and SQL parse on every push and pull request.
+# No secrets: nothing here reaches Supabase or Claude. RLS is proven separately by
+# `npm run db:verify-rls` against the live project.
+name: Checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  app:
+    name: Types, lint, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # Placeholders so `next build` can compile; the build never calls Supabase.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      NEXT_TELEMETRY_DISABLED: 1
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Route types (LayoutProps, PageProps) only exist after typegen, dev or build.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npx eslint .
+      - run: npx next build
+
+  sql:
+    name: SQL parse
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "pglast>=8.3,<9"
+      - run: python3 scripts/check-sql.py

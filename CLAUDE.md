@@ -20,7 +20,7 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-11._
+_Last updated 2026-09-13._
 
 ## Status — Phases 1–2 and 4 built, Phase 3 search and Microsoft sign-in built; all awaiting review
 
@@ -334,12 +334,28 @@ phase's open questions before writing code that depends on them.
     - `csm@example.com`: Elena Ortiz, CSM.
     - `lead@example.com`: Dana Whitfield, the post-sales lead.
 
-**Priority order the user follows, with status (2026-09-11):**
+**2026-09-13:**
+
+24. **Pushed Phase 4** (`08462a8`) to `post-sales-outreach-2026-09-10` at the user's request.
+25. **Built the GitHub checks (GV-04).** `.github/workflows/checks.yml` runs on pushes to
+    `main` and on pull requests, with no secrets.
+    - **`app` job:** `npm ci`, `next typegen`, `tsc --noEmit`, `eslint .`, `next build`.
+      The build uses placeholder `NEXT_PUBLIC_SUPABASE_*` values; it never calls Supabase.
+    - **`sql` job:** `scripts/check-sql.py` parses every migration and `seed.sql` with
+      pglast (`>=8.3,<9`, Python 3.12) and exits 1 on any failure.
+    - **`next typegen` is required before `tsc` on a clean checkout.** `LayoutProps` and
+      `PageProps` only exist in generated route types, so `tsc` passed locally only because
+      `.next/` was already there.
+    - **Verified locally** on a clean copy of the tracked files with no `.env.local`: all
+      steps pass, and the SQL check fails on a deliberately broken migration.
+    - **Feature list:** GV-04 is built; 27 built, 14 planned, 7 waiting on input.
+
+**Priority order the user follows, with status (2026-09-13):**
 
 | Stage | Scope | Status |
 |---|---|---|
 | **P0** | Git repo for the root app; Supabase project, run it, review Phases 1–2; Comms Tracker leak fix; the answers | Repo and live Supabase **done**. User review of Phases 1–4 and the Comms Tracker housekeeping still open |
-| **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI not started. Hosting on Vercel comes **last** |
+| **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI **built** 2026-09-13. Hosting on Vercel comes **last** |
 | **P2** | Skott connector; collateral search; collateral in emails | Search **built**. Skott feed waits on API docs. Collateral in emails parked until Skott |
 | **P3** | Claude drafting | **Built** 2026-09-11, awaiting review |
 | **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | Not started. Needs the mail system and cold-path answers |
@@ -350,7 +366,7 @@ phase's open questions before writing code that depends on them.
 **Stopped for review after Phase 4.**
 - **Next when answers arrive:** the Cortex sync once Krish replies, the Skott feed once its
   API docs arrive, and Phase 5 sending once the mail system and cold path are decided.
-- **Can start any time:** CI (GitHub Actions: types, lint, build, SQL parse).
+- **CI is built** (2026-09-13). Nothing else is unblocked; the rest waits on answers.
 - **Last:** Vercel hosting on the company account.
 
 **Waiting on the user:**
@@ -360,8 +376,7 @@ phase's open questions before writing code that depends on them.
   `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with
   Claude), send Skott API docs and a key, and pass on the Cortex answers from Krish (open
   question 1).
-  - **Push Phase 4?** It's committed on `main` but not pushed to
-    `post-sales-outreach-2026-09-10`. The migration is already live on Supabase.
+  - **Check the first GitHub Actions run** of "Checks" on the repo's Actions tab.
 - **Comms Tracker:**
   - Confirm the GitHub "Comms Tracker refresh" workflow is disabled.
   - OK to commit and push `comms-tracker/next.config.ts`. It's the only uncommitted
@@ -388,7 +403,12 @@ npm run db:push          # apply supabase/migrations/ to the hosted project
 npm run db:seed-users    # create the 4 auth users (service-role key)
 npm run db:seed          # apply supabase/seed.sql (needs psql + SUPABASE_DB_URL)
 npm run db:verify-rls    # THE check that proves the ownership model and write guards
+python3 scripts/check-sql.py   # parse all SQL (needs pglast; CI runs it too)
 ```
+
+CI (`.github/workflows/checks.yml`) runs typegen, types, lint, build and the SQL parse on
+every push to `main` and every PR. On a clean checkout, run `npx next typegen` before
+`tsc`.
 
 There is no local Postgres, Docker or psql on this machine, so SQL can't run locally.
 - **It reaches the hosted project** through the Supabase CLI over `SUPABASE_DB_URL`.
@@ -493,7 +513,9 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
 scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs ·
-                        report-pdf.mjs (status report to an A4 PDF, sections kept whole)
+                        report-pdf.mjs (status report to an A4 PDF, sections kept whole) ·
+                        check-sql.py (pglast parse of migrations + seed, used by CI)
+.github/workflows/      checks.yml: typegen, types, lint, build, SQL parse
 src/lib/supabase/       server.ts (JWT-bearing) · client.ts · proxy.ts
 src/lib/db/queries.ts   all reads; no owner filtering by design
 src/lib/policy.ts       reads app_policy; emailTypeFor() · resolveSendPath()
