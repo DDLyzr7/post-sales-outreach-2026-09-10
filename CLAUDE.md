@@ -20,9 +20,9 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-13._
+_Last updated 2026-09-13 (Phases 5–7)._
 
-## Status — Phases 1–2 and 4 built, Phase 3 search and Microsoft sign-in built; all awaiting review
+## Status — Phases 1–7 built (Phase 3 minus Skott), Apollo enrichment and Microsoft sign-in built; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -38,14 +38,36 @@ global broadcast.
 | 2 — accounts and targeting: lifecycle, My targets, Team coverage, owner assignment | **done, unreviewed** |
 | 3 — collateral search: natural-language search, Skott API feed | **search built, unreviewed**; the Skott feed waits on its API docs and a key; how collateral goes into emails is parked until Skott's data shape is known |
 | 4 — one-click drafting with Claude, collateral in drafts, pre-send check | **done, unreviewed** (2026-09-11). Collateral is named in drafts, not linked, until Skott |
-| 5 — sending: warm and cold paths, cap and opt-outs enforced, delivery tracking | not started. Sends through users' existing mailboxes; mail system and cold-path handling to confirm |
-| 6 — global broadcast to all accounts | not started. Needs the priority rule |
-| 7 — reporting: outreach consistency, account coverage, relevant material | not started |
-| Track — integrations: Cortex sync (Helix: accounts and status; Compass: owners and account mapping), leadership enrichment | waiting on Cortex SDK docs and access |
+| 5 — sending: owner's Microsoft 365 mailbox on both paths, cap and opt-outs enforced, delivery tracking | **done, unreviewed** (2026-09-13). In **test mode** (`app_policy.sending.mode = dry_run`); live sending waits on the Azure mailbox settings (open question 10) |
+| 6 — global broadcast to all accounts | **done, unreviewed** (2026-09-13). Broadcasts sit outside the cap |
+| 7 — reporting: outreach consistency, account coverage, relevant material, broadcast results | **done, unreviewed** (2026-09-13) |
+| Track — integrations: Cortex sync (Helix: accounts and status; Compass: owners and account mapping), leadership enrichment | Apollo enrichment **built** (needs `APOLLO_API_KEY`); Cortex sync waiting on SDK docs and access |
 | P1 — Lyzr sign-in with Microsoft | built and migration pushed; waiting on the user's Azure and Supabase dashboard settings (open question 8) |
 
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
-phase's open questions before writing code that depends on them.
+phase's open questions before writing code that depends on them. (On 2026-09-13 the user
+asked for everything buildable in one pass; that was a one-off, so stop for review again
+from here.)
+
+### Verification state (2026-09-13)
+
+- **Phases 5–7 and enrichment (2026-09-13):**
+  - `tsc`, `eslint`, `next build` (18 routes) and the SQL parse (14 files, plus the
+    PL/pgSQL bodies via `pglast.parser.parse_plpgsql_json`) pass.
+  - The three migrations `20260913000100`–`300` are **pushed to the live project**.
+  - `npm run db:verify-rls` passes every check, including 30 new ones for sending,
+    broadcasts, reports and unsubscribe.
+  - **End to end on the dev server in test mode, 30 checks** (scratchpad script, not in the
+    repo): page access by role, the job endpoint refusing a missing or wrong secret, Send
+    then the send job marking the email sent with `provider = dry_run`, a broadcast
+    launched and completed with unsubscribe lines, and the public unsubscribe page (opening
+    it changes nothing; pressing the button opts out). Test rows were deleted.
+  - **Mocked:** Graph send (create then send), inbox paging, bounce detection, Apollo
+    search and reveal, and token encryption, all against simulated responses.
+  - **Not verified:** a real Microsoft mailbox connection and live send, the tracking job
+    against a real inbox, a real Apollo call, and the Send button pressed through its
+    server action (the RPC behind it was tested directly). The user hasn't clicked through
+    yet.
 
 ### Verification state (2026-09-11)
 
@@ -350,6 +372,39 @@ phase's open questions before writing code that depends on them.
       steps pass, and the SQL check fails on a deliberately broken migration.
     - **Feature list:** GV-04 is built; 27 built, 14 planned, 7 waiting on input.
 
+26. **Built Phases 5–7 and Apollo enrichment in one pass,** at the user's request
+    ("complete everything that needs to be built"), after they answered the sending
+    questions (see Decisions, 2026-09-13).
+    - **Migrations,** pushed to the live project:
+      - **`20260913000100_sending`:** policy updates (cap excludes broadcasts and counts
+        queued; `send_path_routing.providers`; priority confirmed; new `sending` row,
+        starting in `dry_run`), the monthly count view without broadcasts,
+        `mailbox_connection` and `mailbox_token`, `send_email()`,
+        `cancel_queued_email()`, `claim_send_batch()` (service role only),
+        `opt_out_by_token()`, `job_run`, and the extended write guard.
+      - **`20260913000200_broadcast`:** campaign content and audience, a guard freezing
+        launched campaigns, `preview_campaign_audience()`, `launch_campaign()` and
+        `cancel_campaign()`.
+      - **`20260913000300_reporting`:** `report_people()`, `report_material()`,
+        `report_campaigns()`, `enrichment_rules`, and a unique Apollo id per account.
+    - **App:**
+      - Send and Stop sending on the email page, which now also shows delivery.
+      - Drafts lists queued, failed and sent emails.
+      - `/settings`: connect or disconnect your mailbox; for the lead, sending mode, job
+        health and team mailboxes.
+      - `/mailbox/connect` and `/mailbox/callback`.
+      - `/api/jobs/[job]` for the send and tracking jobs, run locally with `npm run jobs`.
+      - The public `/unsubscribe/[token]` page.
+      - Record or clear an opt-out on contact rows.
+      - `/broadcasts` and `/broadcasts/[id]`.
+      - `/reports`.
+      - `/accounts/[id]/leaders` for Apollo.
+    - **`.env.local`:** `APP_BASE_URL`, `CRON_SECRET` and `MAILBOX_TOKEN_KEY` were generated
+      and added (values never printed), along with the known Microsoft client and tenant
+      ids. `MICROSOFT_CLIENT_SECRET` and `APOLLO_API_KEY` are still empty.
+    - **Feature list:** 42 built, 2 planned (CL-06, GV-05), 4 waiting on input (CL-04,
+      CL-05, IN-01, IN-02). Republished.
+
 **Priority order the user follows, with status (2026-09-13):**
 
 | Stage | Scope | Status |
@@ -358,16 +413,17 @@ phase's open questions before writing code that depends on them.
 | **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI **built** 2026-09-13. Hosting on Vercel comes **last** |
 | **P2** | Skott connector; collateral search; collateral in emails | Search **built**. Skott feed waits on API docs. Collateral in emails parked until Skott |
 | **P3** | Claude drafting | **Built** 2026-09-11, awaiting review |
-| **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | Not started. Needs the mail system and cold-path answers |
-| **P5** | Global broadcast | Not started. Needs the priority rule |
-| **P6** | Reporting | Not started |
-| **P7** | Compass; enrichment; Comms Tracker's future | Waiting on answers |
+| **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | **Built** 2026-09-13 in test mode. Live needs the Azure mailbox settings |
+| **P5** | Global broadcast | **Built** 2026-09-13 |
+| **P6** | Reporting | **Built** 2026-09-13 |
+| **P7** | Compass; enrichment; Comms Tracker's future | Apollo enrichment **built** (needs a key). Compass waits on Krish; Comms Tracker undecided |
 
-**Stopped for review after Phase 4.**
+**Stopped for review after Phases 5–7 (2026-09-13).**
 - **Next when answers arrive:** the Cortex sync once Krish replies, the Skott feed once its
-  API docs arrive, and Phase 5 sending once the mail system and cold path are decided.
-- **CI is built** (2026-09-13). Nothing else is unblocked; the rest waits on answers.
-- **Last:** Vercel hosting on the company account.
+  API docs arrive (then CL-05 and CL-06), and live sending once the Azure mailbox settings
+  are in.
+- **Last:** Vercel hosting on the company account, with Vercel Cron calling `/api/jobs/send`
+  and `/api/jobs/track`.
 
 **Waiting on the user:**
 - **Post-Sales Outreach:** switch on the Before User Created hook now (email sign-ups stay
@@ -377,14 +433,21 @@ phase's open questions before writing code that depends on them.
   Claude), send Skott API docs and a key, and pass on the Cortex answers from Krish (open
   question 1).
   - **Check the first GitHub Actions run** of "Checks" on the repo's Actions tab.
+  - **For live sending (open question 10):** on the Azure app, add the redirect URI
+    `http://localhost:3001/mailbox/callback`, the delegated `Mail.Send`, `Mail.ReadBasic`,
+    `User.Read` and `offline_access` permissions with admin consent, and a client secret in
+    `MICROSOFT_CLIENT_SECRET`. Then the lead switches Settings → Sending to live.
+  - **For enrichment:** an Apollo API key in `APOLLO_API_KEY`.
+  - **Review Phases 5–7:** run `npm run jobs` beside the dev server, send a ready email as
+    Riya, and launch a broadcast as Dana. Everything is in test mode.
 - **Comms Tracker:**
   - Confirm the GitHub "Comms Tracker refresh" workflow is disabled.
   - OK to commit and push `comms-tracker/next.config.ts`. It's the only uncommitted
     change.
   - Decide on the live view leak.
 
-**Local servers:** Post-Sales Outreach was left running on `:3001` on 2026-09-11 for the
-user's review. Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
+**Local servers:** Post-Sales Outreach was left running on `:3001` on 2026-09-13 for the
+user's review. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode). Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
 ## Commands
@@ -403,6 +466,7 @@ npm run db:push          # apply supabase/migrations/ to the hosted project
 npm run db:seed-users    # create the 4 auth users (service-role key)
 npm run db:seed          # apply supabase/seed.sql (needs psql + SUPABASE_DB_URL)
 npm run db:verify-rls    # THE check that proves the ownership model and write guards
+npm run jobs             # send job every 30 s, tracking job every 3 min, via /api/jobs (dev server up)
 python3 scripts/check-sql.py   # parse all SQL (needs pglast; CI runs it too)
 ```
 
@@ -431,16 +495,26 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
 2. **Every view is `WITH (security_invoker = on)`.** A view is never an RLS escape hatch.
    Needs Postgres 15+. Comms Tracker's live project shows what happens without this:
    see its "Live state" section. `create or replace view` must restate the option.
-3. **One service-role client in the whole repo**, in `scripts/seed-users.mjs`. Never in
-   a request path. Sync jobs (integrations track) may use it — deliberately, to bypass RLS.
+3. **Service-role key only in scripts and jobs.**
+   - It's used in `scripts/seed-users.mjs`, and by `src/lib/supabase/service.ts` for the
+     send and tracking jobs.
+   - Only `src/app/api/jobs/[job]/route.ts` creates that client. It refuses any request
+     without `CRON_SECRET` and hands the client to `src/lib/jobs/*`.
+   - Never import it into a page, server action or component. Sync jobs (integrations
+     track) may use it the same way.
 4. **`email_activity` is the single read-source** for last-activity, the frequency count
    and analytics. Derive on read via the views; never store a copy on `account`.
 5. **Governance is data, not code.** The cap, send-path routing, broadcast priority,
    staleness thresholds and targeting rules live in `app_policy`. `resolveSendPath()`
    in `src/lib/policy.ts` reads the routing rules; don't branch on contact type inline.
-6. **The two send paths are separate implementations of one interface**, never one
-   implementation with a flag. Warm = owner's real mailbox on our real domain. Cold =
-   dedicated bought domains, never the master domain.
+6. **Send paths map to providers through policy,** never a flag in the send code.
+   - `send_path_routing.providers` names the provider for each path.
+   - Since 2026-09-13 both paths are `microsoft_graph`, the author's own mailbox, by the
+     user's decision. `dry_run` is used whenever `sending.mode` is `dry_run`.
+   - Cold emails (and broadcasts) carry the unsubscribe line
+     (`sending.unsubscribe_footer_email_types`).
+   - Moving cold to a separate service means adding a `SendProvider` and editing the
+     policy row.
 7. **Respect `contact.is_opted_out` on every path**, warm and cold.
 8. **Templates are versioned.** Pin `template_version_id` on every `email_activity` row
    so editing a template never rewrites what we actually said.
@@ -491,11 +565,42 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
       with no email. It stamps `approved_by`/`approved_at` itself.
     - A ready (`approved`) email can't be edited until it goes back to draft. `cancelled`
       is final.
-    - **Phase 5 must write `queued`/`sent` from a job without a JWT subject** (like sync
-      jobs), and must resolve the send path and re-check the cap and opt-out at send time
-      rather than trust the draft's stored `send_path`.
+    - It also refuses `launch_broadcast` as a type, a `campaign_id`, and every new delivery
+      field (`provider_thread_id`, `locked_at`, `send_attempts`, `unsubscribe_token`).
+    - **Past `approved`,** only `SECURITY DEFINER` functions and jobs write. The guard steps
+      aside when `auth.uid()` is null (jobs) or `current_user <> 'authenticated'` (definer
+      functions).
+      - `send_email()` and `cancel_queued_email()` move an email between ready and queued.
+      - `launch_campaign()` and `cancel_campaign()` do the same for broadcasts.
+      - The send and tracking jobs write `sent`, `failed`, `replied`, `bounced` and every
+        delivery field.
+      - Never add a definer function that updates `email_activity` from user input without
+        its own checks.
 16. **Clearing an opt-out is the lead's call** (`app.guard_contact_opt_out`). Anyone can
-    record a new one.
+    record a new one, including the recipient through `opt_out_by_token()`.
+17. **The governor runs in Postgres at Send.**
+    - `send_email()` re-checks the opt-out and address, the sending mode, the mailbox (live
+      only) and the monthly cap.
+    - The cap counts sent plus queued routine emails, under
+      `pg_advisory_xact_lock` on the account.
+    - It re-derives `email_type` and `send_path` with `app.email_type_for()` and
+      `app.resolve_send_path()`, which mirror `emailTypeFor()` and `resolveSendPath()`.
+      Change both together.
+    - The send job re-checks the opt-out and a cancelled campaign before delivering. It
+      doesn't re-check the cap, because a queued email already holds its slot.
+18. **Broadcasts sit outside the cap and are lead-only.**
+    - Broadcast emails are `launch_broadcast` rows with a `campaign_id`, created only by
+      `launch_campaign()`.
+    - `account_monthly_send_count.sends_this_month` excludes them.
+    - A launched campaign can't be edited (`app.guard_campaign_write`).
+19. **Mailbox tokens are never readable by a signed-in user.**
+    - `mailbox_token` has RLS on and no policies.
+    - Tokens are AES-256-GCM encrypted with `MAILBOX_TOKEN_KEY` before they're stored.
+    - `save_mailbox_connection()` accepts only the caller's own sign-in or sending address.
+    - Mail scopes are `Mail.Send` and `Mail.ReadBasic`, never full `Mail.Read`.
+20. **Reports return the caller's own numbers unless they're the lead.** Each report
+    function is SECURITY INVOKER with an `app.is_admin() or … = auth.uid()` filter, in
+    Postgres, not in React.
 
 ## Layout
 
@@ -510,9 +615,14 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                         20260911000100 drafting: draft_context/presend_review, one open draft
                                        per contact, email write guard, opt-out guard,
                                        drafting_rules
+                        20260913000100 sending: policies, mailbox_connection/_token, send_email,
+                                       cancel_queued_email, claim_send_batch, opt_out_by_token,
+                                       job_run, extended email guard
+                        20260913000200 broadcast: campaign content/audience, preview, launch, cancel
+                        20260913000300 reporting: report_people/_material/_campaigns, enrichment_rules
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
-scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs ·
+scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs · run-jobs.mjs ·
                         report-pdf.mjs (status report to an A4 PDF, sections kept whole) ·
                         check-sql.py (pglast parse of migrations + seed, used by CI)
 .github/workflows/      checks.yml: typegen, types, lint, build, SQL parse
@@ -523,18 +633,32 @@ src/lib/presend.ts      pre-send rules (pure) and the review digest
 src/lib/template.ts     template merge for the no-Claude fallback, [[placeholder]] detection
 src/lib/targeting.ts    My targets buckets: win back · going quiet · renewal · warm up ·
                         at cap · on track
-src/lib/providers/      SendProvider + EnrichmentProvider — interfaces only, nothing calls them
-src/app/(app)/          dashboard · accounts/[id] two-pane · targets · team (+ team/actions.ts) ·
-                        collateral (natural-language search) · drafts list · drafts/[id] editor
-                        (+ drafts/actions.ts)
+src/lib/providers/      index.ts (SendProvider, EnrichmentProvider) · send.ts (microsoft_graph,
+                        dry_run) · apollo.ts
+src/lib/microsoft/      oauth.ts (mailbox consent, token refresh) · graph.ts (send, inbox, bounces)
+src/lib/jobs/           send.ts · track.ts · mailbox.ts (access tokens) — service role, via /api/jobs
+src/lib/crypto.ts       token encryption, constant-time compare
+src/lib/supabase/service.ts  service-role client, created only by the job route
+src/app/(app)/          dashboard · accounts/[id] two-pane (+ accounts/actions.ts opt-outs,
+                        accounts/[id]/leaders Apollo) · targets · team (+ team/actions.ts) ·
+                        collateral (natural-language search) · drafts list · drafts/[id] editor,
+                        send and delivery (+ drafts/actions.ts) · broadcasts · broadcasts/[id] ·
+                        reports · settings
+src/app/api/jobs/[job]/ send and track jobs, CRON_SECRET-protected
+src/app/mailbox/        connect + callback: Microsoft 365 mailbox OAuth
+src/app/unsubscribe/    public unsubscribe page (records only on button press)
 src/app/auth/callback/  Microsoft sign-in return: exchanges the PKCE code, errors go to /login
 src/lib/auth.ts         password-sign-in gate (localhost only), same-site redirects, origin
 src/lib/ai/             client.ts (the one Anthropic client) · collateral-search.ts ·
                         brief.ts (facts for drafting) · draft-email.ts · draft-review.ts
 src/lib/db/collateral.ts  search_collateral RPC, plus the contact a search is for
-src/lib/db/drafts.ts    drafting facts for a contact, open drafts, one draft with its context
+src/lib/db/drafts.ts    drafting facts for a contact, open drafts, one email with its context and
+                        delivery, recent sent emails
+src/lib/db/broadcasts.ts  campaigns, audience preview, recipients
+src/lib/db/reports.ts   the three report RPCs
 src/components/         ui · account-status-header · contact-pane · owner-forms (client) ·
-                        nav-links (client) · draft-forms (client)
+                        nav-links (client) · draft-forms (client) · contact-forms (client) ·
+                        settings-forms (client) · broadcast-forms (client) · leader-forms (client)
 docs/feature-list.html  walkthrough feature list (published artifact)
 docs/status-report-2026-09-10.html  shareable status report (published artifact)
 docs/ui-prototype.html  Phase 1 clickable mockup, pre-brand palette
@@ -574,6 +698,20 @@ same goes for `/team`'s `notFound()` for non-admins and the hidden nav link.
   shape is known.
 - **Emails send from the app on the warm and cold paths** (2026-09-10). Not Comms
   Tracker's compose handoff.
+- **Sending decisions (2026-09-13), from the user:**
+  - **Microsoft 365 only.** Every email goes out through the author's own mailbox via
+    Microsoft Graph.
+  - **Cold emails also go from the owner's own mailbox.** These are accounts we're already
+    talking to, at about one email a month. This replaces "cold never from the master
+    domain". `send_path` stays as a classification (reporting, routing, the unsubscribe
+    footer), and `send_path_routing.providers` maps each path to a provider, so cold can
+    move to a separate service later.
+  - **Broadcasts sit outside the monthly limit.** They don't count toward it and aren't
+    blocked by it; routine emails count only other routine emails.
+  - **Leadership enrichment uses Apollo:** a free people search, then a paid reveal only for
+    the people chosen.
+  - **"Complete everything that needs to be built":** Phases 5–7 and enrichment were built
+    in one pass, without stopping between phases.
 - **Skott is the collateral source, fed through its API** (2026-09-10). Don't block
   collateral work on it: build against a provider interface and the existing
   `collateral` table.
@@ -665,14 +803,15 @@ a mockup affordance, not a pattern to copy into the app.
 
 **Needed before Phase 5:**
 
-3. **Warm-path mailbox. Answered 2026-09-10:** each user connects the mailbox they
+3. **Warm-path mailbox. Answered 2026-09-10, and on 2026-09-13 Microsoft 365 only:** each user connects the mailbox they
    already use. The domains and email infrastructure already exist, so there are no new
    domains to warm up. This matches the per-owner design
    (`app_user.warm_sender_address`).
    - **Still to confirm:** Google Workspace, Microsoft 365, or both? Comms Tracker
      suggests lyzr.ai is on Google and lyzr.com is on Outlook.
    - **Microsoft sending** will likely need a one-time tenant admin consent.
-4. **Cold path for now.** With only existing mailboxes connected, cold-routed emails
+4. **Cold path. Answered 2026-09-13: from the owner's own mailbox too.** The options were
+   that cold-routed emails
    (cross-sell intros, friend-account outreach) could:
    - also go from the owner's mailbox,
    - go through the existing cold setup (Lyzr runs Instantly, which Comms Tracker reads),
@@ -683,7 +822,8 @@ a mockup affordance, not a pattern to copy into the app.
 
 **Needed before Phase 6:**
 
-5. **Broadcast vs routine priority** in the same cap window.
+5. **Broadcast vs routine priority. Answered 2026-09-13: broadcasts sit outside the cap.**
+   The old question:
    `app_policy.broadcast_vs_routine_priority` is seeded
    `PLACEHOLDER_AWAITING_CONFIRMATION` with `broadcast_wins_routine_defers`
    (routine defers 30 days). Confirm or change the row before the governor goes live.
@@ -708,6 +848,16 @@ a mockup affordance, not a pattern to copy into the app.
      pending tenant consent. Either get the consent granted, or register a separate
      sign-in-only app.
 9. **Who is the real post-sales lead?** Nobody is promoted automatically.
+10. **Live sending settings** (the user, on the "Lyzr Comms Tracker" Azure app):
+    - Add the Web redirect URI `http://localhost:3001/mailbox/callback`, and the hosted one
+      later.
+    - Add the delegated Graph permissions `Mail.Send`, `Mail.ReadBasic`, `User.Read` and
+      `offline_access`, and have an Entra admin grant consent.
+    - Put a client secret in `MICROSOFT_CLIENT_SECRET`.
+    - Then switch Settings → Sending to live. Until then every send is recorded in test
+      mode.
+11. **Apollo API key** for `APOLLO_API_KEY`. Enrichment is built and hidden behind a clear
+    message until it's set.
 
 **Answered:** email content storage (full body plus template version pin). On 2026-09-10:
 build in Post-Sales Outreach, collateral as trackable links, send from the app, Skott via

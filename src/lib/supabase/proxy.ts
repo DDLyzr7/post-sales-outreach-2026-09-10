@@ -3,7 +3,9 @@ import { createServerClient } from "@supabase/ssr";
 import { env } from "@/lib/env";
 
 // /auth/callback must be reachable before a session exists: it is what creates one.
-const PUBLIC_PATHS = ["/login", "/auth/callback"];
+// /unsubscribe is for people who received an email, not users of the app.
+// /api/jobs checks CRON_SECRET itself.
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/unsubscribe", "/api/jobs"];
 
 /**
  * Refreshes the auth cookie and gates every non-public path.

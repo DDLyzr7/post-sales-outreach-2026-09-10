@@ -5,9 +5,11 @@ client base: who the stakeholders are at each account, which accounts each perso
 should reach next, what collateral fits them, what has been sent recently, and how
 close the account is to its monthly cap.
 
-**Nothing in this build can send an email.** Owners can write drafts with Claude and mark
-them ready (Phase 4). Apart from that, the only changes are two reserved for the
-post-sales lead: account owners and customer lifecycle.
+Owners draft with Claude, mark emails ready and send them from their own Microsoft 365
+mailbox (Phases 4–5). The post-sales lead also runs broadcasts (Phase 6), and everyone
+gets reports scoped to their role (Phase 7). **Sending starts in test mode:** Send
+records an email as sent without delivering it, until the lead switches sending to live
+in Settings.
 
 Every feature, with its ID, status and phase, is listed in `docs/feature-list.html`
 (published walkthrough copy:
@@ -95,6 +97,56 @@ Every threshold is read from `app_policy`.
   until the owner fills it in.
 - **Works without Claude:** the draft is the template with the known facts filled in.
 
+## What Phase 5 delivers: sending
+
+| Feature | Where it lives |
+| --- | --- |
+| **Send** on a ready email; **Stop sending** while it's queued | `src/app/(app)/drafts/[id]/page.tsx`, `src/app/(app)/drafts/actions.ts` |
+| The governor: opt-out, address, sending mode, mailbox and monthly cap, checked at Send under a lock on the account | `public.send_email()` in `supabase/migrations/20260913000100_sending.sql` |
+| Connect your Microsoft 365 mailbox (OAuth, PKCE, token encrypted before storage) | `/settings`, `src/app/mailbox/connect`, `src/app/mailbox/callback`, `src/lib/microsoft/` |
+| The send job: delivers queued email through Microsoft Graph, retries, records the result | `src/lib/jobs/send.ts`, `src/lib/providers/send.ts` |
+| The tracking job: replies and bounces from each sender's inbox | `src/lib/jobs/track.ts` |
+| Both jobs behind one secret-protected endpoint | `src/app/api/jobs/[job]/route.ts`, `npm run jobs` locally |
+| Sending mode (test, live, paused) and job health for the lead | `/settings` |
+| Record an opt-out on any contact; unsubscribe link in cold and broadcast emails | contact rows, `src/app/unsubscribe/[token]` |
+
+- **Both paths send from the author's own mailbox** (decided 2026-09-13). `send_path`
+  still classifies each email, drives the unsubscribe line, and maps to a provider in
+  `app_policy.send_path_routing.providers`, so cold can move to its own service later.
+- **The cap counts sent plus queued routine emails.** Broadcasts sit outside it.
+- **Nothing past "ready" is written by a signed-in user.** `send_email()` queues;
+  only the jobs, on the service-role key, write `sent` and delivery fields.
+- **Opens aren't tracked.** Replies and bounces are read from inbox senders, subjects and
+  thread ids (`Mail.ReadBasic`, never bodies).
+
+## What Phase 6 delivers: broadcast
+
+| Feature | Where it lives |
+| --- | --- |
+| Write a broadcast with merge fields; filter by lifecycle, tier, health, product and contact type | `/broadcasts`, `src/app/(app)/broadcasts/` |
+| Live audience preview with skip reasons, and the email as one recipient reads it | `public.preview_campaign_audience()` |
+| Launch (now or scheduled) and cancel; progress per recipient | `public.launch_campaign()`, `public.cancel_campaign()` in `20260913000200_broadcast.sql` |
+
+Each email goes from the account's primary owner's mailbox. Broadcasts neither count
+toward nor are blocked by the monthly cap; opt-outs are checked at launch and again at send.
+Lead only, enforced in Postgres.
+
+## What Phase 7 delivers: reporting
+
+`/reports`, backed by `report_people()`, `report_material()` and `report_campaigns()` in
+`20260913000300_reporting.sql`: outreach consistency week by week, account coverage at
+30 and 60 days, whether the collateral sent fits the account, and broadcast results.
+Owners see their own numbers; the lead sees the team. Every function runs as the caller,
+so RLS still applies.
+
+## Leadership enrichment (Apollo)
+
+**Find leaders** on an account's leadership pane searches Apollo for functional leaders at
+the account's domain (free), and adds the people you tick as leadership contacts. Adding
+someone reveals their email and uses Apollo credits, capped by
+`app_policy.enrichment_rules.max_reveals_per_request`. Code: `src/lib/providers/apollo.ts`,
+`src/app/(app)/accounts/[id]/leaders/`. It needs `APOLLO_API_KEY`.
+
 A standalone clickable mockup of the Phase 1 screens is at `docs/ui-prototype.html`.
 Open it in a browser; no server is required. It predates the Lyzr brand.
 
@@ -116,7 +168,14 @@ SUPABASE_SERVICE_ROLE_KEY=<service role key>           # Settings -> API (keep s
 SUPABASE_DB_URL=<session pooler connection string>     # Settings -> Database (optional)
 SEED_USER_PASSWORD=PostSales!2026
 ANTHROPIC_API_KEY=<Anthropic API key>                  # optional: Claude reads collateral searches
+APP_BASE_URL=http://localhost:3001                     # for unsubscribe links
+CRON_SECRET=<random, 16+ chars>                        # protects /api/jobs
+MAILBOX_TOKEN_KEY=<32 random bytes, base64>            # encrypts Microsoft refresh tokens
+MICROSOFT_CLIENT_ID / MICROSOFT_TENANT_ID / MICROSOFT_CLIENT_SECRET   # mailbox connection
+APOLLO_API_KEY=<Apollo API key>                        # optional: leadership enrichment
 ```
+
+`.env.example` shows how to generate `CRON_SECRET` and `MAILBOX_TOKEN_KEY`.
 
 **2. Apply the migrations** (Phase 1 and Phase 2). Either link the CLI:
 
@@ -149,7 +208,8 @@ npm run db:seed        # uses psql if SUPABASE_DB_URL is set
 
 ```bash
 npm run db:verify-rls
-npm run dev
+npm run dev -- -p 3001
+npm run jobs            # in a second terminal: the send and tracking jobs
 ```
 
 ### Seed users
@@ -184,6 +244,21 @@ Real users sign in with their Lyzr Microsoft account. That needs three dashboard
    `public.hook_restrict_sign_up`. It refuses any account outside the domains listed in
    `app_policy.sign_in_rules`.
 
+### Sending from Microsoft 365 mailboxes
+
+To send for real, each user connects their mailbox in **Settings**. That needs, on the
+same Azure app registration:
+
+1. A **Web redirect URI** `http://localhost:3001/mailbox/callback` (and the deployed URL's
+   `/mailbox/callback`).
+2. **Delegated Microsoft Graph permissions:** `Mail.Send`, `Mail.ReadBasic`, `User.Read`,
+   `offline_access`. An Entra admin should **grant admin consent** for Lyzr.
+3. A **client secret** in `MICROSOFT_CLIENT_SECRET`.
+
+Then the lead switches **Settings → Sending** from test mode to live. Once hosted,
+schedule `GET /api/jobs/send` about every minute and `GET /api/jobs/track` every few
+minutes, with `Authorization: Bearer $CRON_SECRET` (Vercel Cron sends this header).
+
 Nobody becomes the post-sales lead automatically. To promote someone, run this in the SQL
 editor: `update public.app_user set is_admin = true where lower(email) = '<their email>';`
 
@@ -204,8 +279,10 @@ everything* — is enforced in Postgres, not in React.
 - `account_assignment` is the single source of the rule. Adding a row grants access;
   soft-deleting it removes access. No application code participates.
 - Every view is `WITH (security_invoker = on)`, so a view is never an RLS escape hatch.
-- The app's request path uses only the anon key plus the user's JWT. There is exactly
-  one service-role client in the repo, in `scripts/seed-users.mjs`.
+- The app's request path uses only the anon key plus the user's JWT. The service-role
+  key is used in `scripts/seed-users.mjs` and by the send and tracking jobs
+  (`src/lib/supabase/service.ts`), which are reachable only through `/api/jobs` with
+  `CRON_SECRET`.
 
 **Phase 2 write guards, also in Postgres:**
 
@@ -232,6 +309,9 @@ key a browser holds and checks five things:
 4. A non-admin cannot change lifecycle, even on their own account.
 5. A non-admin cannot make themselves an owner.
 6. Editing your own metadata cannot make you an admin or change your sending address.
+7. The drafting, sending, broadcast, report and unsubscribe guards (Phases 4–7): no faked
+   sends or queue entries, the cap refusing a send, no reading mailbox tokens, broadcasts
+   lead-only and outside the cap, reports scoped by role.
 
 ---
 
@@ -241,8 +321,8 @@ key a browser holds and checks five things:
 analytics are all read from it and stored nowhere else, so they cannot drift:
 
 - `account_last_activity` — most recent sent email per account
-- `account_monthly_send_count` — sends this calendar month, across every sender, both
-  paths and all campaigns
+- `account_monthly_send_count` — routine sends this calendar month, across every sender
+  and both paths. Broadcasts are counted separately and sit outside the cap
 - `account_overview` — one row per visible account; what the dashboard, the account
   header, My targets and Team coverage read. Phase 2 appends lifecycle, owner count and
   primary owner.
@@ -267,8 +347,8 @@ Other decisions worth knowing:
 - **App-only fields** (`notes`, `is_friend_account`) sit on `account` alongside synced
   fields and are not overwritten by sync.
 - **Opt-out** is a first-class flag on `contact`, with a trigger keeping `opted_out_at`
-  honest. It is shown in both panes today and will gate both send paths once sending
-  lands (phase 5).
+  honest. Both send paths and broadcasts refuse an opted-out contact, at Send, at launch
+  and again when the job sends.
 - **Soft delete and audit** (`deleted_at`, `created_by`/`updated_by`, `created_at`/
   `updated_at`) are on every business table, with triggers stamping the actor from the
   JWT.
@@ -277,24 +357,28 @@ Other decisions worth knowing:
   `targeting_rules`. `resolveSendPath()` in `src/lib/policy.ts` reads the routing rules
   rather than branching on contact type — which is why the account view can already
   show you which path a compose *would* take.
-- **Provider seams** are declared in `src/lib/providers/index.ts`: `SendProvider` (with
-  `warm` and `cold` as two separate implementations of one interface, never one
-  implementation with a flag) and `EnrichmentProvider`. Interfaces only for now —
-  nothing implements or calls them yet.
+- **Provider seams** are declared in `src/lib/providers/index.ts`. `SendProvider` has two
+  implementations, `microsoft_graph` and `dry_run`; `send_path_routing.providers` picks
+  one per path. `EnrichmentProvider` (search, then reveal) is implemented by Apollo.
 
 ---
 
 ## What is verified, and what is not
 
-**Verified against the live Supabase project (2026-09-10):**
-- All seven migrations and the seed applied cleanly.
-- `npm run db:verify-rls` passes every check, including the Phase 2 write guards.
+**Verified against the live Supabase project (2026-09-13):**
+- All 13 migrations and the seed applied cleanly.
+- `npm run db:verify-rls` passes every check, including the Phase 2 write guards and the
+  Phases 4–7 guards.
+- In test mode, through the running app: Send, the send job, a broadcast from launch to
+  completion, the unsubscribe page, and every new page for the right roles.
+- The Microsoft Graph and Apollo calls against simulated responses (no live keys yet).
 - Signed in as the lead and as a PM, every page renders with the right accounts. For
   the PM, Team coverage and other owners' accounts return 404.
 - `next build`, `tsc` and ESLint pass.
 
-**Not verified yet:** a person clicking through the screens in a browser, including the
-owner and lifecycle forms on Team coverage. Run steps 2–5 above against your project. `npm run
+**Not verified yet:** a person clicking through the screens in a browser; a real Microsoft
+mailbox connection and live send (needs the Azure settings above); a real Apollo search
+(needs a key). Run steps 2–5 above against your project. `npm run
 db:verify-rls` is the check that actually proves the ownership model, and it is the
 first thing to run.
 
@@ -316,19 +400,12 @@ first thing to run.
 2. **Skott API docs and a key** — which endpoints list collateral, how items are tagged,
    and how to authenticate.
 
-**Needed before Phase 5 (sending):**
+**Needed before live sending:**
 
-3. **Warm-path mailbox** — send from each owner's individual mailbox, or one shared
-   post-sales address? Built on the brief's assumption of the owner's mailbox:
-   `app_user.warm_sender_address` is per-user.
-4. **Cold sending provider** for the bought outbound domains.
-
-**Needed before Phase 6 (broadcast):**
-
-5. **Broadcast vs routine priority** when both would hit an account in the same month.
-   `app_policy.broadcast_vs_routine_priority` is seeded as
-   `PLACEHOLDER_AWAITING_CONFIRMATION` with `broadcast_wins_routine_defers` (routine
-   sends defer 30 days). Confirm or change the row before the governor goes live.
+3. **Azure mailbox settings** — the redirect URI, delegated `Mail.Send` and
+   `Mail.ReadBasic` with admin consent, and a client secret (see "Sending from Microsoft
+   365 mailboxes").
+4. **An Apollo API key** for leadership enrichment.
 
 **Answered:**
 
@@ -339,3 +416,5 @@ first thing to run.
    - Emails send from the app.
    - Skott is fed through its API.
    - Use the Lyzr brand.
+8. On 2026-09-13: Microsoft 365 mailboxes only; cold emails also from the owner's own
+   mailbox; broadcasts sit outside the monthly cap; Apollo for enrichment.

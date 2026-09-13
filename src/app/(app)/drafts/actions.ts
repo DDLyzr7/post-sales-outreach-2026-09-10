@@ -15,8 +15,9 @@ import { fillTemplate } from "@/lib/template";
 import type { AppUser, DraftContext, DraftReview, SendPath } from "@/lib/types";
 
 /**
- * Drafting actions. Nothing is sent from here: the furthest a draft goes is
- * 'approved', which means the owner marked it ready.
+ * Drafting and sending actions. A draft goes drafted -> approved (the owner marked
+ * it ready) here; Send hands it to send_email(), which runs the governor and
+ * queues it. Nothing in this file delivers email: the send job does that.
  *
  * Postgres is the boundary. RLS limits drafts to accounts the caller can see, and
  * app.guard_email_activity_write lets a signed-in user write only their own
@@ -37,6 +38,7 @@ function fail(error: string): DraftActionState {
 
 function explain(err: { code?: string; message: string }): string {
   if (err.code === "23505") return "You already have an open draft for this contact.";
+  if (err.code === "55000" || err.code === "P0002") return err.message;
   if (err.code === "42501") {
     return err.message.startsWith("new row violates")
       ? "You can't write drafts on that account."
@@ -229,6 +231,9 @@ export async function updateDraft(_prev: DraftActionState, formData: FormData): 
   if (detail.draft.sender_id !== user.id) return fail("Only the person who wrote a draft can change it.");
 
   const { draft, contact, account } = detail;
+  if (draft.status !== "drafted" && draft.status !== "approved") {
+    return fail("This email has been sent or queued, so it can't be changed.");
+  }
   const locked = draft.status === "approved";
 
   // A draft marked ready is read-only; its saved content is what counts.
@@ -262,9 +267,10 @@ export async function updateDraft(_prev: DraftActionState, formData: FormData): 
     const failing = blockers(
       runPresendChecks({
         contact,
-        sendsThisMonth: account.sends_this_month,
+        sendsThisMonth: detail.slotsUsed,
         sendPath,
-        senderAddress: user.warm_sender_address,
+        sendingMode: policies.sending.mode,
+        mailbox: detail.mailbox,
         subject: subjectText,
         body: bodyText,
         daysSinceContactEmailed: detail.daysSinceContactEmailed,
@@ -276,7 +282,7 @@ export async function updateDraft(_prev: DraftActionState, formData: FormData): 
       problem = `Saved, but not marked ready: ${failing.map((check) => check.label.toLowerCase()).join("; ")}.`;
     } else {
       status = "approved";
-      notice = "Marked ready. It will send once sending is switched on.";
+      notice = "Marked ready. Press Send when you want it to go.";
     }
   } else if (intent === "unready") {
     status = "drafted";
@@ -327,7 +333,7 @@ export async function redraft(_prev: DraftActionState, formData: FormData): Prom
   if (!user) return fail("Your session has ended. Sign in again.");
   if (!detail) return fail("That draft could not be found. It may have been discarded.");
   if (detail.draft.sender_id !== user.id) return fail("Only the person who wrote a draft can change it.");
-  if (detail.draft.status === "approved") return fail("Move the email back to draft before redrafting it.");
+  if (detail.draft.status !== "drafted") return fail("Move the email back to draft before redrafting it.");
 
   const supabase = await createClient();
   const [subject, policies] = await Promise.all([
@@ -369,6 +375,9 @@ export async function discardDraft(_prev: DraftActionState, formData: FormData):
   if (!user) return fail("Your session has ended. Sign in again.");
   if (!detail) return fail("That draft could not be found. It may already be discarded.");
   if (detail.draft.sender_id !== user.id) return fail("Only the person who wrote a draft can discard it.");
+  if (detail.draft.status !== "drafted" && detail.draft.status !== "approved") {
+    return fail("This email has already been queued or sent.");
+  }
 
   const supabase = await createClient();
   const { error } = await supabase
@@ -379,4 +388,43 @@ export async function discardDraft(_prev: DraftActionState, formData: FormData):
 
   refresh(detail.account.account_id, draftId);
   redirect(`/accounts/${detail.account.account_id}`);
+}
+
+/**
+ * Send a ready email. send_email() is the boundary: it re-checks the opt-out, the
+ * address, the sending mode, the mailbox and the monthly cap under a lock on the
+ * account, resolves the send path again from policy, and queues the email.
+ */
+export async function sendEmail(_prev: DraftActionState, formData: FormData): Promise<DraftActionState> {
+  const draftId = String(formData.get("draft_id") ?? "");
+  if (!UUID.test(draftId)) return fail("That email could not be found. Refresh the page.");
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("send_email", { p_email_id: draftId });
+  if (error) return fail(explain(error));
+
+  const detail = await getDraft(draftId);
+  if (detail) refresh(detail.account.account_id, draftId);
+  const mode = (data as { mode?: string } | null)?.mode;
+  return {
+    error: null,
+    notice:
+      mode === "dry_run"
+        ? "Queued in test mode. It will be recorded as sent within a minute; nothing reaches the contact."
+        : "Queued. It sends from your mailbox within a minute.",
+  };
+}
+
+/** Take a queued email back to ready, if the send job hasn't picked it up yet. */
+export async function stopSending(_prev: DraftActionState, formData: FormData): Promise<DraftActionState> {
+  const draftId = String(formData.get("draft_id") ?? "");
+  if (!UUID.test(draftId)) return fail("That email could not be found. Refresh the page.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("cancel_queued_email", { p_email_id: draftId });
+  if (error) return fail(explain(error));
+
+  const detail = await getDraft(draftId);
+  if (detail) refresh(detail.account.account_id, draftId);
+  return { error: null, notice: "Stopped. The email is back to ready and won't send." };
 }

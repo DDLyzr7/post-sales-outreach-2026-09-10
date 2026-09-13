@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { relativeDays } from "@/lib/format";
-import type { Policies } from "@/lib/policy";
+import type { Policies, SendingMode } from "@/lib/policy";
 import { findPlaceholders } from "@/lib/template";
 import type { SendPath } from "@/lib/types";
 
@@ -8,8 +8,12 @@ import type { SendPath } from "@/lib/types";
  * The rule half of the pre-send check. Plain facts in, a list of checks out, so
  * the page shows the same answer the server action enforces. Thresholds come
  * from policy. Postgres independently refuses to mark an email ready for an
- * opted-out contact or one with no address; the cap is enforced again at send
- * time in Phase 5.
+ * opted-out contact or one with no address, and send_email() runs the cap,
+ * opt-out, sending mode and mailbox checks again when Send is pressed.
+ *
+ * "block" stops marking ready. Problems that only stop sending (no mailbox
+ * connected, sending paused) are "warn" here, with the reason, and are enforced
+ * by send_email().
  */
 
 export type CheckStatus = "pass" | "warn" | "block";
@@ -28,9 +32,12 @@ export type PresendInput = {
     is_opted_out: boolean;
     opt_out_reason: string | null;
   };
+  /** Routine emails holding a slot on the account this month: sent plus queued. */
   sendsThisMonth: number;
   sendPath: SendPath;
-  senderAddress: string | null;
+  sendingMode: SendingMode;
+  /** The author's mailbox connection, or null if they never connected one. */
+  mailbox: { status: string; email_address: string } | null;
   subject: string;
   body: string;
   /** Days since this contact was last sent an email, or null if never. */
@@ -76,47 +83,54 @@ export function runPresendChecks(input: PresendInput): PresendCheck[] {
       key: "frequency_cap",
       status: "block",
       label: "Monthly cap reached",
-      detail: `${sent} of ${cap} emails already sent to this account this month. It can't take another until next month.`,
+      detail: `${sent} of ${cap} emails already sent or queued for this account this month. It can't take another until next month. Broadcasts don't count.`,
     });
   } else if (sent >= policies.frequencyCap.warn_at_sends) {
     checks.push({
       key: "frequency_cap",
       status: "warn",
       label: "Close to the monthly cap",
-      detail: `${sent} of ${cap} sent to this account this month. This email would make ${sent + 1}.`,
+      detail: `${sent} of ${cap} sent or queued for this account this month. This email would make ${sent + 1}.`,
     });
   } else {
     checks.push({
       key: "frequency_cap",
       status: "pass",
       label: "Within the monthly cap",
-      detail: `${sent} of ${cap} sent to this account this month.`,
+      detail: `${sent} of ${cap} sent or queued for this account this month. Broadcasts don't count.`,
     });
   }
 
-  if (input.sendPath === "warm") {
-    checks.push(
-      input.senderAddress
-        ? {
-            key: "sending_identity",
-            status: "pass",
-            label: "Sends from your mailbox",
-            detail: `Warm path, from ${input.senderAddress}.`,
-          }
-        : {
-            key: "sending_identity",
-            status: "block",
-            label: "No sending address",
-            detail: "Your profile has no sending address. Ask the post-sales lead to set one.",
-          },
-    );
-  } else {
+  // Both paths send from the author's own Microsoft 365 mailbox (decided 2026-09-13).
+  const path = input.sendPath === "warm" ? "Warm" : "Cold";
+  const connected = input.mailbox?.status === "connected";
+  if (input.sendingMode === "paused") {
     checks.push({
       key: "sending_identity",
       status: "warn",
-      label: "Cold sending isn't set up yet",
-      detail:
-        "Cold emails go from dedicated outreach domains, which aren't connected yet. You can mark this ready, but it won't send until they are.",
+      label: "Sending is paused",
+      detail: "The post-sales lead has paused sending. You can mark this ready; it sends once sending is back on.",
+    });
+  } else if (input.sendingMode === "live" && !connected) {
+    checks.push({
+      key: "sending_identity",
+      status: "warn",
+      label: input.mailbox?.status === "needs_reconnect" ? "Reconnect your mailbox" : "Mailbox not connected",
+      detail: "Emails send from your own Microsoft 365 mailbox. Connect it in Settings before pressing Send.",
+    });
+  } else if (input.sendingMode === "dry_run") {
+    checks.push({
+      key: "sending_identity",
+      status: "warn",
+      label: "Test mode",
+      detail: `${path} path. Sending is in test mode: Send records the email as sent, but nothing reaches ${contact.full_name}.`,
+    });
+  } else {
+    checks.push({
+      key: "sending_identity",
+      status: "pass",
+      label: "Sends from your mailbox",
+      detail: `${path} path, from ${input.mailbox!.email_address}.${input.sendPath === "cold" ? " Includes an unsubscribe line." : ""}`,
     });
   }
 

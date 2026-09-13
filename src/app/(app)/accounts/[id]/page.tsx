@@ -38,6 +38,9 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
     isFriendAccount: detail.overview.is_friend_account,
     draftsByContact,
     viewerId: user.id,
+    viewerIsAdmin: user.is_admin,
+    accountId: detail.overview.account_id,
+    enrichmentAvailable: policies.enrichment.who_can_enrich === "owners_and_lead" || user.is_admin,
   };
 
   return (
@@ -56,9 +59,9 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
         </div>
 
         <p className="mt-4 text-xs text-muted">
-          Drafts stay in the app until sending arrives in phase 5. Every send will pass through the
-          frequency governor and be logged to <code>email_activity</code> at send time; drafts
-          don&apos;t count toward the monthly cap.
+          Every email sends from its author&apos;s own Microsoft 365 mailbox after the checks run again at
+          Send, and is logged to <code>email_activity</code>. Drafts don&apos;t count toward the monthly cap,
+          queued emails do, and broadcasts sit outside it.
         </p>
       </div>
     </>

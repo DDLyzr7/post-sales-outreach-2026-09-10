@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Card } from "@/components/ui";
-import { DiscardDraftButton, DraftEditor, RedraftForm } from "@/components/draft-forms";
+import {
+  DiscardDraftButton, DraftEditor, RedraftForm, SendEmailForm, StopSendingButton,
+} from "@/components/draft-forms";
 import { getDraft } from "@/lib/db/drafts";
 import { getCurrentUser } from "@/lib/db/queries";
 import {
   COLLATERAL_TYPE_LABEL, CONTACT_TYPE_LABEL, EMAIL_TYPE_LABEL, SEND_PATH_LABEL, formatDate,
 } from "@/lib/format";
 import { loadPolicies } from "@/lib/policy";
-import { draftDigest, runPresendChecks, type CheckStatus } from "@/lib/presend";
+import { blockers, draftDigest, runPresendChecks, type CheckStatus } from "@/lib/presend";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,20 @@ const CHECK_ICON: Record<CheckStatus, { mark: string; className: string; label: 
   warn: { mark: "!", className: "text-warn", label: "Warning" },
   block: { mark: "✕", className: "text-bad", label: "Blocks marking ready" },
 };
+
+const DELIVERY_LABEL: Record<string, { label: string; tone: "ok" | "warn" | "bad" | "neutral" | "accent" }> = {
+  queued: { label: "Queued", tone: "accent" },
+  sent: { label: "Sent", tone: "ok" },
+  opened: { label: "Sent", tone: "ok" },
+  replied: { label: "Replied", tone: "ok" },
+  bounced: { label: "Bounced", tone: "bad" },
+  failed: { label: "Failed", tone: "bad" },
+};
+
+function formatDateTime(iso: string | null): string {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
 
 const FLAG_KIND_LABEL: Record<string, string> = {
   unsupported_claim: "Unsupported claim",
@@ -44,14 +60,18 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   const { draft, contact, account, author } = detail;
   const mine = draft.sender_id === user.id;
   const ready = draft.status === "approved";
+  const drafting = draft.status === "drafted" || ready;
+  const delivery = drafting ? null : DELIVERY_LABEL[draft.status];
   const body = draft.body_text ?? "";
   const context = draft.draft_context;
+  const mode = policies.sending.mode;
 
   const checks = runPresendChecks({
     contact,
-    sendsThisMonth: account.sends_this_month,
+    sendsThisMonth: detail.slotsUsed,
     sendPath: draft.send_path,
-    senderAddress: author.warm_sender_address,
+    sendingMode: mode,
+    mailbox: mine ? detail.mailbox : null,
     subject: draft.subject,
     body,
     daysSinceContactEmailed: detail.daysSinceContactEmailed,
@@ -61,10 +81,21 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
   const review = draft.presend_review;
   const reviewCurrent = review ? review.digest === draftDigest(draft.subject, body) : false;
 
-  const from =
-    draft.send_path === "warm"
-      ? (author.warm_sender_address ?? "no sending address set")
-      : "a cold outreach domain (not connected yet)";
+  // Both paths send from the author's own Microsoft 365 mailbox.
+  const from = drafting
+    ? mine && detail.mailbox?.status === "connected"
+      ? detail.mailbox.email_address
+      : `${author.full_name}'s Microsoft mailbox`
+    : (draft.from_email ?? `${author.full_name}'s mailbox`);
+
+  const sendBlocked =
+    blockers(checks)[0]?.label ??
+    (mode === "paused"
+      ? "Sending is paused by the post-sales lead."
+      : mode === "live" && detail.mailbox?.status !== "connected"
+        ? "Connect your mailbox in Settings first."
+        : null);
+  const dryRun = draft.provider === "dry_run" || draft.governor_decision?.mode === "dry_run";
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
@@ -74,9 +105,14 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
 
       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
         <h1 className="font-display text-xl font-semibold tracking-tight">
-          Draft to {contact.full_name}
+          {drafting ? "Draft" : "Email"} to {contact.full_name}
         </h1>
-        <Badge tone={ready ? "ok" : "neutral"}>{ready ? "Ready to send" : "Draft"}</Badge>
+        {delivery ? (
+          <Badge tone={delivery.tone}>{delivery.label}</Badge>
+        ) : (
+          <Badge tone={ready ? "ok" : "neutral"}>{ready ? "Ready to send" : "Draft"}</Badge>
+        )}
+        {dryRun && !drafting ? <Badge tone="warn">Test mode</Badge> : null}
         <Badge>{EMAIL_TYPE_LABEL[draft.email_type]}</Badge>
         <Badge tone={draft.send_path === "warm" ? "ok" : "cold"}>
           {SEND_PATH_LABEL[draft.send_path]} path
@@ -97,8 +133,84 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_380px]">
         <div className="space-y-5">
+          {!drafting ? (
+            <Card className="p-4">
+              <h2 className="text-sm font-semibold">Delivery</h2>
+              <dl className="mt-2 grid gap-x-4 gap-y-1.5 text-xs sm:grid-cols-[8rem_1fr]">
+                {draft.status === "queued" ? (
+                  <>
+                    <dt className="text-muted">Queued</dt>
+                    <dd>
+                      {formatDateTime(draft.scheduled_for)}. The send job picks it up within a minute.
+                      {draft.send_attempts > 0 ? ` Attempt ${draft.send_attempts}.` : ""}
+                    </dd>
+                  </>
+                ) : null}
+                {draft.sent_at ? (
+                  <>
+                    <dt className="text-muted">Sent</dt>
+                    <dd>
+                      {formatDateTime(draft.sent_at)} from {draft.from_email ?? "the author's mailbox"}
+                      {dryRun ? " (test mode: nothing was delivered)" : ""}
+                    </dd>
+                  </>
+                ) : null}
+                {draft.replied_at ? (
+                  <>
+                    <dt className="text-muted">Replied</dt>
+                    <dd>{formatDateTime(draft.replied_at)}</dd>
+                  </>
+                ) : null}
+                {draft.bounced_at ? (
+                  <>
+                    <dt className="text-muted">Bounced</dt>
+                    <dd>{formatDateTime(draft.bounced_at)}. Check the address before emailing {contact.full_name} again.</dd>
+                  </>
+                ) : null}
+                {draft.error_message ? (
+                  <>
+                    <dt className="text-muted">{draft.status === "failed" ? "Failed" : "Last problem"}</dt>
+                    <dd className="text-bad">{draft.error_message}</dd>
+                  </>
+                ) : null}
+              </dl>
+              {draft.status === "sent" && !dryRun ? (
+                <p className="mt-2 text-[11px] text-muted">
+                  Replies and bounces are picked up from your inbox every few minutes. Opens aren&apos;t tracked.
+                </p>
+              ) : null}
+              {draft.status === "failed" ? (
+                <p className="mt-2 text-[11px] text-muted">
+                  Nothing was delivered. Fix the problem, then start a new draft for {contact.full_name}.
+                </p>
+              ) : null}
+              {mine && draft.status === "queued" ? (
+                <div className="mt-3">
+                  <StopSendingButton draftId={draft.id} />
+                </div>
+              ) : null}
+            </Card>
+          ) : null}
+
+          {mine && ready ? (
+            <Card className="p-4">
+              <h2 className="text-sm font-semibold">Send</h2>
+              <p className="mt-0.5 mb-3 text-xs text-muted">
+                {mode === "dry_run"
+                  ? "Sending is in test mode: the email is recorded as sent and counts toward the cap, but nothing is delivered."
+                  : `Sends from your Microsoft 365 mailbox to ${contact.email ?? "the contact"}. Every check runs again when you press Send.`}
+              </p>
+              <SendEmailForm
+                draftId={draft.id}
+                recipient={contact.email ?? contact.full_name}
+                disabledReason={sendBlocked}
+                testMode={mode === "dry_run"}
+              />
+            </Card>
+          ) : null}
+
           <Card className="p-4">
-            {mine ? (
+            {mine && drafting ? (
               <DraftEditor
                 draftId={draft.id}
                 subject={draft.subject}
@@ -110,25 +222,34 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
               />
             ) : (
               <div className="space-y-3 text-sm">
-                <p className="text-xs text-muted">
-                  Only {author.full_name} can edit this draft. It sends from their mailbox.
-                </p>
+                <dl className="grid gap-1 text-xs sm:grid-cols-[4rem_1fr]">
+                  <dt className="text-muted">From</dt>
+                  <dd className="font-mono">{from}</dd>
+                  <dt className="text-muted">To</dt>
+                  <dd className="font-mono">{draft.to_email ?? contact.email ?? "no email on file"}</dd>
+                </dl>
+                {drafting ? (
+                  <p className="text-xs text-muted">
+                    Only {author.full_name} can edit this draft. It sends from their mailbox.
+                  </p>
+                ) : null}
                 <p className="font-medium">{draft.subject}</p>
                 <pre className="whitespace-pre-wrap font-sans leading-relaxed">{body}</pre>
               </div>
             )}
           </Card>
 
-          {mine && !ready ? (
+          {mine && draft.status === "drafted" ? (
             <Card className="p-4">
               <RedraftForm draftId={draft.id} instruction={context?.instruction ?? null} />
             </Card>
           ) : null}
 
-          {mine ? <DiscardDraftButton draftId={draft.id} /> : null}
+          {mine && drafting ? <DiscardDraftButton draftId={draft.id} /> : null}
         </div>
 
         <aside className="space-y-5">
+          {drafting ? (
           <Card>
             <div className="border-b border-line px-4 py-3">
               <h2 className="text-sm font-semibold">Pre-send check</h2>
@@ -153,6 +274,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
               })}
             </ul>
           </Card>
+          ) : null}
 
           <Card>
             <div className="border-b border-line px-4 py-3">
@@ -184,7 +306,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
                 </>
               ) : (
                 <p className="text-xs text-muted">
-                  Not checked yet.{mine ? " Use Save and check with Claude." : ""}
+                  Not checked yet.{mine && drafting ? " Use Save and check with Claude." : ""}
                 </p>
               )}
             </div>

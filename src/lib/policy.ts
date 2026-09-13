@@ -14,6 +14,8 @@ export type FrequencyCapPolicy = {
   counts_statuses: string[];
   counts_campaign_sends: boolean;
   counts_across_all_senders: boolean;
+  /** Email types outside the cap. Broadcasts, since 2026-09-13. */
+  excluded_email_types?: string[];
 };
 
 export type StalenessPolicy = { warn_days: number; alert_days: number };
@@ -22,15 +24,34 @@ export type SendPathRoutingPolicy = {
   default: "warm" | "cold";
   rules: { when: Record<string, string>; path: "warm" | "cold" }[];
   always_show_path_before_send: boolean;
+  /** Which provider serves each path. Both are the owner's Microsoft mailbox today. */
+  providers?: Record<"warm" | "cold", string>;
 };
 
 export type PriorityPolicy = {
   status: string;
   strategy: string;
-  ranks: Record<string, number>;
-  on_conflict: string;
-  defer_window_days: number;
-  allow_owner_override_with_reason: boolean;
+  broadcast_counts_toward_cap?: boolean;
+  broadcast_blocked_by_cap?: boolean;
+};
+
+export type SendingMode = "dry_run" | "live" | "paused";
+
+export type SendingPolicy = {
+  mode: SendingMode;
+  max_attempts: number;
+  batch_size: number;
+  lock_minutes: number;
+  unsubscribe_footer_email_types: string[];
+  unsubscribe_footer_text: string;
+};
+
+export type EnrichmentPolicy = {
+  provider: string;
+  who_can_enrich: "owners_and_lead" | "lead_only";
+  max_reveals_per_request: number;
+  seniorities: string[];
+  titles_by_function: Partial<Record<string, string[]>>;
 };
 
 export type TargetingPolicy = { renewal_window_days: number };
@@ -44,9 +65,11 @@ export type Policies = {
   priority: PriorityPolicy | null;
   targeting: TargetingPolicy;
   drafting: DraftingPolicy;
+  sending: SendingPolicy;
+  enrichment: EnrichmentPolicy;
 };
 
-const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting" | "drafting"> = {
+const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting" | "drafting" | "sending" | "enrichment"> = {
   targeting: { renewal_window_days: 90 },
   drafting: { recent_contact_warn_days: 14 },
   frequencyCap: {
@@ -55,10 +78,27 @@ const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting" | "dra
     window: "calendar_month",
     counts_send_paths: ["warm", "cold"],
     counts_statuses: ["sent", "opened", "replied", "bounced"],
-    counts_campaign_sends: true,
+    counts_campaign_sends: false,
     counts_across_all_senders: true,
+    excluded_email_types: ["launch_broadcast"],
   },
   staleness: { warn_days: 30, alert_days: 60 },
+  // Without the policy row, nothing sends.
+  sending: {
+    mode: "paused",
+    max_attempts: 3,
+    batch_size: 25,
+    lock_minutes: 10,
+    unsubscribe_footer_email_types: [],
+    unsubscribe_footer_text: "",
+  },
+  enrichment: {
+    provider: "apollo",
+    who_can_enrich: "lead_only",
+    max_reveals_per_request: 10,
+    seniorities: ["c_suite", "vp", "head"],
+    titles_by_function: {},
+  },
 };
 
 export async function loadPolicies(supabase: SupabaseClient): Promise<Policies> {
@@ -72,6 +112,8 @@ export async function loadPolicies(supabase: SupabaseClient): Promise<Policies> 
     priority: (byKey.get("broadcast_vs_routine_priority") as PriorityPolicy) ?? null,
     targeting: (byKey.get("targeting_rules") as TargetingPolicy) ?? FALLBACK.targeting,
     drafting: (byKey.get("drafting_rules") as DraftingPolicy) ?? FALLBACK.drafting,
+    sending: (byKey.get("sending") as SendingPolicy) ?? FALLBACK.sending,
+    enrichment: (byKey.get("enrichment_rules") as EnrichmentPolicy) ?? FALLBACK.enrichment,
   };
 }
 
@@ -106,8 +148,9 @@ export function emailTypeFor(
 
 /**
  * Resolves the send path from the routing policy rather than from a hardcoded
- * branch. The account page shows the answer, and drafts store it; Phase 5's send
- * flow must resolve it again at send time rather than trust the stored value.
+ * branch. The account page shows the answer, and drafts store it. At send time
+ * app.resolve_send_path() in Postgres resolves it again from the same policy, and
+ * that answer is the one that counts.
  */
 export function resolveSendPath(
   policy: SendPathRoutingPolicy | null,

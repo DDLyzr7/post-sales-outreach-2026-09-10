@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import {
-  discardDraft, redraft, startDraft, updateDraft, type DraftActionState,
+  discardDraft, redraft, sendEmail, startDraft, stopSending, updateDraft, type DraftActionState,
 } from "@/app/(app)/drafts/actions";
 
 const initial: DraftActionState = { error: null, notice: null };
@@ -212,6 +212,58 @@ export function DiscardDraftButton({ draftId }: { draftId: string }) {
         {pending ? "Discarding..." : "Discard draft"}
       </button>
       {state.error ? <p role="alert" className="text-[11px] text-bad">{state.error}</p> : null}
+    </form>
+  );
+}
+
+/** Send a ready email. The server re-runs every check before it queues. */
+export function SendEmailForm({
+  draftId,
+  recipient,
+  disabledReason,
+  testMode,
+}: {
+  draftId: string;
+  recipient: string;
+  /** Shown instead of the button when the checks already say it can't send. */
+  disabledReason: string | null;
+  testMode: boolean;
+}) {
+  const [state, formAction, pending] = useActionState(sendEmail, initial);
+
+  return (
+    <form
+      action={formAction}
+      onSubmit={(event) => {
+        const question = testMode
+          ? `Send in test mode? It will be recorded as sent to ${recipient}, but nothing is delivered.`
+          : `Send this email to ${recipient} now?`;
+        if (!window.confirm(question)) event.preventDefault();
+      }}
+      className="space-y-2"
+    >
+      <input type="hidden" name="draft_id" value={draftId} />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={pending || !!disabledReason} className={PRIMARY}>
+          {pending ? "Queueing..." : testMode ? "Send (test mode)" : "Send"}
+        </button>
+        {disabledReason ? <span className="text-[11px] text-muted">{disabledReason}</span> : null}
+      </div>
+      <Feedback state={state} />
+    </form>
+  );
+}
+
+export function StopSendingButton({ draftId }: { draftId: string }) {
+  const [state, formAction, pending] = useActionState(stopSending, initial);
+
+  return (
+    <form action={formAction} className="space-y-1">
+      <input type="hidden" name="draft_id" value={draftId} />
+      <button type="submit" disabled={pending} className={BUTTON}>
+        {pending ? "Stopping..." : "Stop sending"}
+      </button>
+      <Feedback state={state} />
     </form>
   );
 }

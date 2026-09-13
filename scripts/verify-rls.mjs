@@ -336,6 +336,200 @@ for (const expected of EXPECTED) {
   for (const s of [riya, elena, marcus, lead]) await s.client.auth.signOut();
 }
 
+// Phases 5-7 (20260913000100-300): the send queue, mailbox tokens, broadcasts,
+// reports and unsubscribe links. Needs app_policy.sending.mode = 'dry_run' or
+// 'live'. Test rows use the same "verify-rls:" subject and are removed at the end.
+{
+  const TAG = "verify-rls:";
+  const TOM = "44444444-0000-4000-8000-000000000102"; // Northwind, engaged, Riya + Elena
+  const PRIYA = "44444444-0000-4000-8000-000000000101"; // Northwind, engaged
+  const SANA = "44444444-0000-4000-8000-000000000103"; // Northwind, engaged
+
+  async function session(email) {
+    const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(`sign in ${email}: ${error.message}`);
+    return { client, id: data.user.id };
+  }
+
+  console.log("\nSending, broadcasts and reports (Phases 5-7)");
+  const riya = await session("pm@example.com");
+  const elena = await session("csm@example.com");
+  const lead = await session("lead@example.com");
+
+  const cleanup = async () => {
+    const { data: campaigns } = await lead.client.from("campaign").select("id").like("name", `${TAG}%`);
+    const ids = (campaigns ?? []).map((c) => c.id);
+    if (ids.length) await lead.client.from("email_activity").delete().in("campaign_id", ids);
+    await lead.client.from("email_activity").delete().like("subject", `${TAG}%`);
+    if (ids.length) await lead.client.from("campaign").delete().in("id", ids);
+  };
+  await cleanup();
+
+  const { data: sendingPolicy } = await lead.client.from("app_policy").select("value").eq("key", "sending").maybeSingle();
+  const mode = sendingPolicy?.value?.mode;
+  check("sending policy exists and isn't paused", mode === "dry_run" || mode === "live", `mode=${mode}`);
+
+  const readyDraft = async (who, contactId) => {
+    const { data, error } = await who.client
+      .from("email_activity")
+      .insert({
+        account_id: NORTHWIND, contact_id: contactId, sender_id: who.id, email_type: "product_update",
+        send_path: "warm", subject: `${TAG} send`, body_text: "Test email written by scripts/verify-rls.mjs.",
+      })
+      .select("id")
+      .single();
+    if (error) throw new Error(`draft setup: ${error.message}`);
+    const { error: readyError } = await who.client.from("email_activity").update({ status: "approved" }).eq("id", data.id);
+    if (readyError) throw new Error(`ready setup: ${readyError.message}`);
+    return data.id;
+  };
+  const slots = async () => {
+    const { data } = await lead.client.from("account_overview").select("sends_this_month").eq("account_id", NORTHWIND).single();
+    const { count } = await lead.client.from("email_activity").select("id", { count: "exact", head: true })
+      .eq("account_id", NORTHWIND).eq("status", "queued").neq("email_type", "launch_broadcast");
+    return (data?.sends_this_month ?? 0) + (count ?? 0);
+  };
+
+  const riyaEmail = await readyDraft(riya, TOM);
+
+  const { error: directQueue } = await riya.client.from("email_activity").update({ status: "queued" }).eq("id", riyaEmail);
+  check("cannot queue an email by writing status directly", !!directQueue, directQueue ? directQueue.message : "QUEUED");
+
+  const { error: elenaSendsRiya } = await elena.client.rpc("send_email", { p_email_id: riyaEmail });
+  check("a co-owner cannot send someone else's email", !!elenaSendsRiya, elenaSendsRiya ? elenaSendsRiya.message : "SENT");
+
+  const { error: broadcastType } = await riya.client.from("email_activity").insert({
+    account_id: NORTHWIND, contact_id: SANA, sender_id: riya.id, email_type: "launch_broadcast",
+    send_path: "warm", subject: `${TAG} fake broadcast`, body_text: "x",
+  });
+  check("cannot write a draft typed as a broadcast (to dodge the cap)", !!broadcastType,
+    broadcastType ? broadcastType.message : "INSERTED");
+
+  // Fill Northwind up to the cap, then one more must be refused.
+  const cap = 2;
+  const before = await slots();
+  let queuedByRiya = null;
+  if (before < cap) {
+    const { data: decision, error: sendError } = await riya.client.rpc("send_email", { p_email_id: riyaEmail });
+    check("owner can send their own ready email (it queues)", !sendError && !!decision,
+      sendError ? sendError.message : `mode=${decision?.mode}, slots ${before} -> ${await slots()}`);
+    queuedByRiya = sendError ? null : riyaEmail;
+  }
+  while ((await slots()) < cap) {
+    const filler = await readyDraft(elena, SANA);
+    const { error } = await elena.client.rpc("send_email", { p_email_id: filler });
+    if (error) break;
+  }
+  const overCap = await readyDraft(elena, PRIYA);
+  const { error: capError } = await elena.client.rpc("send_email", { p_email_id: overCap });
+  check("the monthly cap refuses a send once sent + queued reach it", !!capError && /this month/.test(capError.message),
+    capError ? capError.message : "SENT OVER THE CAP");
+
+  if (queuedByRiya) {
+    const { error: stopError } = await riya.client.rpc("cancel_queued_email", { p_email_id: queuedByRiya });
+    const { data: stopped } = await riya.client.from("email_activity").select("status").eq("id", queuedByRiya).single();
+    check("the author can stop a queued email before it sends", !stopError && stopped?.status === "approved",
+      stopError ? stopError.message : `status=${stopped?.status}`);
+  }
+
+  const { data: tokens, error: tokenError } = await riya.client.from("mailbox_token").select("user_id");
+  check("mailbox tokens can't be read by a signed-in user", !!tokenError || (tokens ?? []).length === 0,
+    tokenError ? tokenError.message : `${(tokens ?? []).length} rows`);
+
+  const { error: foreignMailbox } = await riya.client.rpc("save_mailbox_connection", {
+    p_email_address: "someone.else@example.com", p_ciphertext: "v1.x.y.z", p_scopes: ["Mail.Send"],
+  });
+  check("cannot connect a mailbox that isn't your own address", !!foreignMailbox,
+    foreignMailbox ? foreignMailbox.message : "CONNECTED");
+
+  const { error: claimError } = await riya.client.rpc("claim_send_batch", { p_limit: 1 });
+  check("a signed-in user cannot run the send job's claim", !!claimError, claimError ? claimError.message : "CLAIMED");
+
+  const { error: ownerPreview } = await riya.client.rpc("preview_campaign_audience", { p_audience: {} });
+  check("an owner cannot preview a broadcast audience", !!ownerPreview, ownerPreview ? ownerPreview.message : "PREVIEWED");
+
+  const { data: ownerCampaign, error: ownerCampaignError } = await riya.client
+    .from("campaign").insert({ name: `${TAG} owner broadcast` }).select("id");
+  check("an owner cannot create a broadcast", !!ownerCampaignError || !ownerCampaign?.length,
+    ownerCampaignError ? ownerCampaignError.message : "CREATED");
+
+  // The lead launches a broadcast to engaged contacts at existing customers.
+  const sendsBefore = (await lead.client.from("account_overview").select("sends_this_month").eq("account_id", NORTHWIND).single()).data?.sends_this_month;
+  const { data: campaign, error: campaignError } = await lead.client
+    .from("campaign")
+    .insert({
+      name: `${TAG} broadcast`, subject: `${TAG} broadcast for {{account_name}}`,
+      body_text: "Hi {{contact_first_name}}, test broadcast from {{sender_first_name}}.",
+      audience: { lifecycle: ["existing"], contact_types: ["engaged"] },
+    })
+    .select("id")
+    .single();
+  check("the lead can create a broadcast", !campaignError, campaignError?.message ?? "created");
+
+  if (campaign) {
+    const { data: preview } = await lead.client.rpc("preview_campaign_audience", {
+      p_audience: { lifecycle: ["existing"], contact_types: ["engaged"] },
+    });
+    const peter = (preview ?? []).find((r) => r.contact_id === "44444444-0000-4000-8000-000000000402");
+    check("the audience preview skips an opted-out contact with the reason", peter?.skip_reason === "opted_out",
+      `Peter Vance: ${peter?.skip_reason ?? "not in preview"}`);
+
+    const { error: ownerLaunch } = await riya.client.rpc("launch_campaign", { p_campaign_id: campaign.id });
+    check("an owner cannot launch a broadcast", !!ownerLaunch, ownerLaunch ? ownerLaunch.message : "LAUNCHED");
+
+    const { data: launched, error: launchError } = await lead.client.rpc("launch_campaign", { p_campaign_id: campaign.id });
+    check("the lead can launch it", !launchError && launched?.queued > 0,
+      launchError ? launchError.message : `queued ${launched?.queued}, skipped ${launched?.skipped}`);
+
+    const { data: rows } = await lead.client.from("email_activity")
+      .select("subject, status, sender_id, unsubscribe_token, contact_id").eq("campaign_id", campaign.id);
+    const northwind = (rows ?? []).find((r) => r.subject?.includes("Northwind Logistics"));
+    check("merge fields are filled per recipient", !!northwind && !(rows ?? []).some((r) => r.subject.includes("{{")),
+      northwind?.subject ?? "no Northwind row");
+
+    const sendsAfter = (await lead.client.from("account_overview").select("sends_this_month").eq("account_id", NORTHWIND).single()).data?.sends_this_month;
+    check("broadcasts don't count toward the monthly cap", sendsAfter === sendsBefore, `sends_this_month ${sendsBefore} -> ${sendsAfter}`);
+
+    const { error: editLaunched } = await lead.client.from("campaign").update({ subject: `${TAG} rewritten` }).eq("id", campaign.id);
+    check("a launched broadcast can't be rewritten", !!editLaunched, editLaunched ? editLaunched.message : "EDITED");
+
+    const { data: riyaSees } = await riya.client.from("email_activity").select("account_id").eq("campaign_id", campaign.id);
+    const riyaAccounts = new Set((riyaSees ?? []).map((r) => r.account_id));
+    check("owners see broadcast rows only on their own accounts",
+      [...riyaAccounts].every((a) => ["11111111-0000-4000-8000-000000000001", "11111111-0000-4000-8000-000000000003", "11111111-0000-4000-8000-000000000007"].includes(a)),
+      `${riyaSees?.length ?? 0} rows on ${riyaAccounts.size} account(s)`);
+
+    // Unsubscribe by link, as the anon key: a real token opts that one contact out.
+    const target = (rows ?? []).find((r) => r.status === "queued" && r.unsubscribe_token);
+    if (target) {
+      const anonClient = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+      const { data: bogus } = await anonClient.rpc("opt_out_by_token", { p_token: "00000000-0000-4000-8000-000000000000" });
+      const { data: optedEmail, error: optError } = await anonClient.rpc("opt_out_by_token", { p_token: target.unsubscribe_token });
+      const { data: contactAfter } = await lead.client.from("contact").select("is_opted_out").eq("id", target.contact_id).single();
+      check("an unsubscribe link opts out its one contact, and a made-up token does nothing",
+        bogus === null && !optError && !!optedEmail && contactAfter?.is_opted_out === true,
+        optError ? optError.message : `bogus=${bogus}, opted out=${contactAfter?.is_opted_out}`);
+      await lead.client.from("contact").update({ is_opted_out: false }).eq("id", target.contact_id);
+    }
+
+    const { data: cancelled, error: cancelError } = await lead.client.rpc("cancel_campaign", { p_campaign_id: campaign.id });
+    check("the lead can cancel a running broadcast", !cancelError, cancelError ? cancelError.message : `cancelled ${cancelled?.cancelled}`);
+  }
+
+  const { data: riyaReport, error: reportError } = await riya.client.rpc("report_people", { p_weeks: 4 });
+  check("an owner's report has only their own row", !reportError && (riyaReport ?? []).length === 1 && riyaReport[0].user_id === riya.id,
+    reportError ? reportError.message : `${(riyaReport ?? []).length} row(s)`);
+  const { data: leadReport } = await lead.client.rpc("report_people", { p_weeks: 4 });
+  check("the lead's report covers the team", (leadReport ?? []).length >= 3, `${(leadReport ?? []).length} row(s)`);
+
+  await cleanup();
+  const { count: leftover } = await lead.client.from("email_activity").select("id", { count: "exact", head: true }).like("subject", `${TAG}%`);
+  check("sending test rows cleaned up", leftover === 0, `${leftover ?? "?"} left`);
+
+  for (const s of [riya, elena, lead]) await s.client.auth.signOut();
+}
+
 // The anon key with no session must see nothing at all.
 {
   const anon = createClient(url, anonKey, {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { OptOutForm } from "@/components/contact-forms";
 import { StartDraftForm } from "@/components/draft-forms";
 import { Badge, EmptyState, RELATIONSHIP_TONE } from "@/components/ui";
 import { FUNCTION_LABEL, SEND_PATH_LABEL } from "@/lib/format";
@@ -55,6 +56,7 @@ function ContactRow({
   isFriendAccount,
   drafts,
   viewerId,
+  viewerIsAdmin,
 }: {
   contact: Contact;
   collateral: SuggestedCollateral[];
@@ -63,6 +65,7 @@ function ContactRow({
   isFriendAccount: boolean;
   drafts: DraftSummary[];
   viewerId: string;
+  viewerIsAdmin: boolean;
 }) {
   const sendPath = resolveSendPath(policies.sendPathRouting, {
     email_type: emailTypeFor(contact.type, isFriendAccount),
@@ -109,12 +112,21 @@ function ContactRow({
           >
             Find collateral
           </Link>
-          <span className="text-[11px] text-muted">
+          <span
+            className="text-[11px] text-muted"
+            title="Both paths send from the author's own Microsoft 365 mailbox. Cold emails carry an unsubscribe line."
+          >
             would send{" "}
             <span className={sendPath === "warm" ? "text-ok" : "text-cold"}>
               {SEND_PATH_LABEL[sendPath].toLowerCase()}
             </span>
           </span>
+          <OptOutForm
+            accountId={contact.account_id}
+            contactId={contact.id}
+            optedOut={contact.is_opted_out}
+            canClear={viewerIsAdmin}
+          />
         </div>
       </div>
 
@@ -167,6 +179,9 @@ export function ContactPane({
   isFriendAccount,
   draftsByContact,
   viewerId,
+  viewerIsAdmin,
+  accountId,
+  enrichmentAvailable,
 }: {
   variant: "engaged" | "committee";
   contacts: Contact[];
@@ -176,6 +191,10 @@ export function ContactPane({
   isFriendAccount: boolean;
   draftsByContact: Map<string, DraftSummary[]>;
   viewerId: string;
+  viewerIsAdmin: boolean;
+  accountId: string;
+  /** Whether this viewer may look for leaders with Apollo. */
+  enrichmentAvailable: boolean;
 }) {
   const engaged = variant === "engaged";
 
@@ -192,7 +211,14 @@ export function ContactPane({
               : "Functional leaders we do not sell to yet. Cross-sell intros, cold path."}
           </p>
         </div>
-        <span className="shrink-0 text-xs text-muted">{contacts.length}</span>
+        <div className="flex shrink-0 items-baseline gap-3">
+          {!engaged && enrichmentAvailable ? (
+            <Link href={`/accounts/${accountId}/leaders`} className="text-[11px] font-medium text-accent hover:underline">
+              Find leaders
+            </Link>
+          ) : null}
+          <span className="text-xs text-muted">{contacts.length}</span>
+        </div>
       </div>
 
       {contacts.length ? (
@@ -207,6 +233,7 @@ export function ContactPane({
               isFriendAccount={isFriendAccount}
               drafts={draftsByContact.get(contact.id) ?? []}
               viewerId={viewerId}
+              viewerIsAdmin={viewerIsAdmin}
             />
           ))}
         </ul>
@@ -215,7 +242,7 @@ export function ContactPane({
           <EmptyState>
             {engaged
               ? "No engaged contacts synced for this account yet."
-              : "No committee contacts yet. Leadership enrichment fills this pane once a provider is chosen."}
+              : "No leadership contacts yet. Use Find leaders to look them up with Apollo."}
           </EmptyState>
         </div>
       )}

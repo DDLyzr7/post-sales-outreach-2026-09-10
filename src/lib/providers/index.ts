@@ -1,38 +1,32 @@
 /**
  * Provider seams.
  *
- * Phase 1 ships the interfaces only - there are no implementations yet, and
- * nothing in the app calls them. They exist now so that Phase 2 (enrichment)
- * and Phase 3 (sending) drop a concrete provider in behind these types without
- * any other file learning which vendor we picked.
+ * Sending: every path resolves to a provider through
+ * app_policy.send_path_routing.providers. Since 2026-09-13 both warm and cold map
+ * to "microsoft_graph", the author's own Microsoft 365 mailbox. Keeping the seam
+ * means cold can move to a dedicated service later by adding an implementation
+ * and editing the policy row, without the send job learning which vendor it is.
+ * "dry_run" records a send without contacting anyone.
  *
- * The two send paths are separate implementations of one interface, never one
- * implementation with a flag: warm goes out of an owner's real mailbox on our
- * real domain, cold goes out of dedicated bought domains.
+ * Enrichment: a free search first, then a paid reveal only for the people the
+ * owner picks. Apollo is the implementation (src/lib/providers/apollo.ts).
  */
-import type { BusinessFunction, EmailType, SendPath } from "@/lib/types";
+import type { BusinessFunction } from "@/lib/types";
 
 export type OutboundMessage = {
   emailActivityId: string;
-  accountId: string;
+  senderId: string;
   toEmail: string;
   toName: string | null;
-  fromEmail: string;
-  fromName: string;
   subject: string;
   bodyText: string;
-  bodyHtml: string | null;
-  emailType: EmailType;
-  campaignId: string | null;
 };
 
 export type SendResult =
-  | { ok: true; providerMessageId: string; provider: string; sentAt: string }
-  | { ok: false; provider: string; error: string; retryable: boolean };
+  | { ok: true; provider: string; providerMessageId: string; providerThreadId: string | null; sentAt: string }
+  | { ok: false; provider: string; error: string; retryable: boolean; needsReconnect?: boolean };
 
 export interface SendProvider {
-  /** Which path this implementation serves. */
-  readonly path: SendPath;
   readonly name: string;
   send(message: OutboundMessage): Promise<SendResult>;
 }
@@ -40,12 +34,24 @@ export interface SendProvider {
 export type EnrichmentQuery = {
   accountId: string;
   companyName: string;
-  companyDomain: string | null;
+  companyDomain: string;
   /** Which functional leaders to look for, e.g. ["hr", "marketing"]. */
   functions: BusinessFunction[];
+  titlesByFunction: Partial<Record<BusinessFunction, string[]>>;
+  seniorities: string[];
+};
+
+/** A search hit. No email yet: revealing one costs credits. */
+export type EnrichmentCandidate = {
+  externalId: string;
+  displayName: string;
+  title: string | null;
+  businessFunction: BusinessFunction;
+  hasEmail: boolean;
 };
 
 export type EnrichedContact = {
+  externalId: string;
   fullName: string;
   title: string | null;
   businessFunction: BusinessFunction;
@@ -57,5 +63,6 @@ export type EnrichedContact = {
 
 export interface EnrichmentProvider {
   readonly name: string;
-  findCommitteeContacts(query: EnrichmentQuery): Promise<EnrichedContact[]>;
+  search(query: EnrichmentQuery): Promise<EnrichmentCandidate[]>;
+  reveal(externalId: string): Promise<EnrichedContact | null>;
 }

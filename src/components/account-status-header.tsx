@@ -150,9 +150,9 @@ export function AccountStatusHeader({
               ))}
             </div>
             <p className="mt-2 text-[11px] text-muted">
-              Counted across every sender, both send paths and all campaigns
-              ({account.warm_sends_this_month} warm, {account.cold_sends_this_month} cold).
-              {atCap ? " Cap reached - the governor will block further sends." : ""}
+              Counted across every sender and both send paths ({account.warm_sends_this_month} warm,{" "}
+              {account.cold_sends_this_month} cold). Broadcasts sit outside the cap.
+              {atCap ? " Cap reached: Send is refused until next month." : ""}
             </p>
           </div>
         </div>

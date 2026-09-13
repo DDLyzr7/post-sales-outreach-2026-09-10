@@ -15,8 +15,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     { href: "/targets", label: "My targets" },
     { href: "/drafts", label: "Drafts" },
     { href: "/collateral", label: "Collateral" },
-    // Hidden from everyone but the lead; the page and its writes are refused for them anyway.
-    ...(user.is_admin ? [{ href: "/team", label: "Team coverage" }] : []),
+    { href: "/reports", label: "Reports" },
+    // Hidden from everyone but the lead; the pages and their writes are refused for them anyway.
+    ...(user.is_admin
+      ? [
+          { href: "/broadcasts", label: "Broadcasts" },
+          { href: "/team", label: "Team coverage" },
+        ]
+      : []),
+    { href: "/settings", label: "Settings" },
   ];
 
   return (

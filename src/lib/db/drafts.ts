@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { searchCollateral } from "@/lib/db/collateral";
 import { emailTypeFor } from "@/lib/policy";
 import type {
-  AccountOverview, BusinessFunction, CollateralFact, CollateralHit, Contact, DraftContext, DraftReview, DraftSummary, EmailType,
+  AccountOverview, BusinessFunction, CollateralFact, CollateralHit, Contact, DraftContext, DraftReview, DraftSummary, EmailStatus, EmailType,
   PastEmail, SendPath, TemplateChoice,
 } from "@/lib/types";
 
@@ -257,7 +257,7 @@ export type DraftRecord = {
   sender_id: string;
   email_type: EmailType;
   send_path: SendPath;
-  status: "drafted" | "approved" | "cancelled";
+  status: EmailStatus;
   subject: string;
   body_text: string | null;
   to_email: string | null;
@@ -267,6 +267,14 @@ export type DraftRecord = {
   presend_review: DraftReview | null;
   approved_at: string | null;
   updated_at: string;
+  scheduled_for: string | null;
+  sent_at: string | null;
+  replied_at: string | null;
+  bounced_at: string | null;
+  provider: string | null;
+  error_message: string | null;
+  send_attempts: number;
+  governor_decision: { mode?: string; skip_reason?: string } | null;
 };
 
 export type DraftDetail = {
@@ -279,9 +287,16 @@ export type DraftDetail = {
   collateral: CollateralFact[];
   daysSinceContactEmailed: number | null;
   teammateDraftAuthors: string[];
+  /** Routine emails holding a slot on the account this month: sent plus queued. */
+  slotsUsed: number;
+  /** The viewer's own mailbox connection (RLS shows only your own, or all to the lead). */
+  mailbox: { status: string; email_address: string } | null;
 };
 
-/** A draft in the drafting stage, with what the editor shows around it. */
+/** Statuses the email page shows: the drafting stage and everything after Send. */
+const EMAIL_PAGE_STATUSES = ["drafted", "approved", "queued", "sent", "opened", "replied", "bounced", "failed"];
+
+/** An email written in the app, from draft to delivery, with what the page shows around it. */
 export async function getDraft(draftId: string): Promise<DraftDetail | null> {
   if (!UUID.test(draftId)) return null;
   const supabase = await createClient();
@@ -289,11 +304,12 @@ export async function getDraft(draftId: string): Promise<DraftDetail | null> {
   const { data } = await supabase
     .from("email_activity")
     .select(
-      "id, account_id, contact_id, sender_id, email_type, send_path, status, subject, body_text, to_email, from_email, template_version_id, draft_context, presend_review, approved_at, updated_at, author:app_user!email_activity_sender_id_fkey(full_name, warm_sender_address), template_version(version, template(name))",
+      "id, account_id, contact_id, sender_id, email_type, send_path, status, subject, body_text, to_email, from_email, template_version_id, draft_context, presend_review, approved_at, updated_at, scheduled_for, sent_at, replied_at, bounced_at, provider, error_message, send_attempts, governor_decision, author:app_user!email_activity_sender_id_fkey(full_name, warm_sender_address), template_version(version, template(name))",
     )
     .eq("id", draftId)
-    .in("status", ["drafted", "approved"])
+    .in("status", EMAIL_PAGE_STATUSES)
     .is("deleted_at", null)
+    .is("campaign_id", null)
     .maybeSingle();
 
   type Row = DraftRecord & {
@@ -305,7 +321,11 @@ export async function getDraft(draftId: string): Promise<DraftDetail | null> {
 
   const collateralIds = (row.draft_context?.collateral_ids ?? []).filter((id) => UUID.test(id));
 
-  const [contactRes, accountRes, lastSentRes, openDrafts, collateralRes] = await Promise.all([
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const [contactRes, accountRes, lastSentRes, openDrafts, collateralRes, queuedRes, mailboxRes] = await Promise.all([
     supabase.from("contact").select(CONTACT_FIELDS).eq("id", row.contact_id).maybeSingle(),
     supabase.from("account_overview").select("*").eq("account_id", row.account_id).maybeSingle(),
     supabase
@@ -324,6 +344,14 @@ export async function getDraft(draftId: string): Promise<DraftDetail | null> {
           .select("id, title, summary, content_type, asset_url, products:product(name)")
           .in("id", collateralIds)
       : Promise.resolve({ data: [] }),
+    supabase
+      .from("email_activity")
+      .select("id", { count: "exact", head: true })
+      .eq("account_id", row.account_id)
+      .eq("status", "queued")
+      .neq("email_type", "launch_broadcast")
+      .is("deleted_at", null),
+    supabase.from("mailbox_connection").select("status, email_address").eq("user_id", user?.id ?? "").maybeSingle(),
   ]);
 
   type CollateralRow = {
@@ -359,5 +387,46 @@ export async function getDraft(draftId: string): Promise<DraftDetail | null> {
         openDrafts.filter((d) => d.sender_id !== row.sender_id).map((d) => d.sender_name),
       ),
     ],
+    slotsUsed: account.sends_this_month + (queuedRes.count ?? 0),
+    mailbox: (mailboxRes.data as DraftDetail["mailbox"]) ?? null,
   };
+}
+
+/** An email past the drafting stage, as the Drafts page lists it. */
+export type SentSummary = Omit<DraftSummary, "status"> & {
+  status: EmailStatus;
+  sent_at: string | null;
+  replied_at: string | null;
+  bounced_at: string | null;
+  provider: string | null;
+  error_message: string | null;
+};
+
+/**
+ * Emails queued, sent or failed in the last `days` days on every account the
+ * caller can see. Broadcast rows are listed on their broadcast instead.
+ */
+export async function listRecentEmails(days = 30): Promise<SentSummary[]> {
+  const supabase = await createClient();
+  const since = new Date(Date.now() - days * DAY_MS).toISOString();
+  const { data, error } = await supabase
+    .from("email_activity")
+    .select(`${SUMMARY_FIELDS}, sent_at, replied_at, bounced_at, provider, error_message`)
+    .in("status", ["queued", "sent", "opened", "replied", "bounced", "failed"])
+    .is("deleted_at", null)
+    .is("campaign_id", null)
+    .gte("updated_at", since)
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  type Row = Omit<DraftRow, "status"> & Pick<SentSummary, "status" | "sent_at" | "replied_at" | "bounced_at" | "provider" | "error_message">;
+  return ((data ?? []) as unknown as Row[]).map((row) => ({
+    ...toSummary(row as unknown as DraftRow),
+    status: row.status,
+    sent_at: row.sent_at,
+    replied_at: row.replied_at,
+    bounced_at: row.bounced_at,
+    provider: row.provider,
+    error_message: row.error_message,
+  }));
 }
