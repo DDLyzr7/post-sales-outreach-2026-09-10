@@ -2,7 +2,7 @@ import Link from "next/link";
 import { OptOutForm } from "@/components/contact-forms";
 import { StartDraftForm } from "@/components/draft-forms";
 import { Badge, EmptyState, RELATIONSHIP_TONE } from "@/components/ui";
-import { FUNCTION_LABEL, SEND_PATH_LABEL } from "@/lib/format";
+import { FUNCTION_LABEL, SEND_PATH_LABEL, formatDate } from "@/lib/format";
 import { emailTypeFor, resolveSendPath, type Policies } from "@/lib/policy";
 import type { Contact, CrossSellIntro, DraftSummary, SuggestedCollateral } from "@/lib/types";
 
@@ -94,6 +94,14 @@ function ContactRow({
                 enriched
               </Badge>
             ) : null}
+            {contact.stakeholder_role ? (
+              <Badge tone="accent" title={contact.influence_level ? `${contact.influence_level} influence` : undefined}>
+                {contact.stakeholder_role.replace(/_/g, " ")}
+              </Badge>
+            ) : null}
+            {contact.sentiment && contact.sentiment !== "neutral" ? (
+              <Badge tone={contact.sentiment === "positive" ? "ok" : "warn"}>{contact.sentiment}</Badge>
+            ) : null}
             {contact.is_opted_out ? (
               <Badge tone="bad" title={contact.opt_out_reason ?? undefined}>
                 opted out
@@ -102,6 +110,9 @@ function ContactRow({
           </div>
           <p className="mt-0.5 text-xs text-muted">{contact.title ?? "Title unknown"}</p>
           <p className="mt-0.5 font-mono text-xs text-muted">{contact.email ?? "no email on file"}</p>
+          {contact.last_interaction_at ? (
+            <p className="mt-0.5 text-[11px] text-muted">Last interaction {formatDate(contact.last_interaction_at)} (Compass)</p>
+          ) : null}
         </div>
 
         <div className="flex shrink-0 flex-col items-end gap-1">

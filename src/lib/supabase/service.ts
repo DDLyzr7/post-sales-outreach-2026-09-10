@@ -2,7 +2,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { env } from "@/lib/env";
 
 /**
- * The service-role client for the send and tracking jobs. It bypasses RLS and has
+ * The service-role client for the send, tracking and Cortex sync jobs. It bypasses RLS and has
  * no JWT subject, which is exactly what lets a job mark emails as sent
  * (app.guard_email_activity_write steps aside when auth.uid() is null).
  *

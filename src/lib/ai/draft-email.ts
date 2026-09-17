@@ -30,6 +30,7 @@ How to write it:
 - Follow the template's structure and tone, but write real sentences in place of its {{placeholders}}.
 - A product update is about a product the account uses. Pick the one that best fits the recipient's function.
 - Match the relationship. A champion can be relaxed. A dormant or detractor relationship, or a churned account, needs a careful, low-pressure note. A leadership contact who has never heard from us needs a clear reason for the email in the first two sentences.
+- Current work with us lists the account's projects and use cases by their internal names. You may refer to one that fits the recipient in plain, general terms, but never state progress, dates, results or problems beyond the stage given.
 - Don't repeat what recent emails to this account already said. Refer back to one only when it went to this same recipient; never mention emails sent to other people.
 - Mention at most two pieces of collateral, by title, and only from the collateral list. Don't include URLs; links are added later.
 - Sign off with the sender's first name on a warm email and full name on a cold one.

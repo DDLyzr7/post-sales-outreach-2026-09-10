@@ -38,6 +38,14 @@ const EXPECTED = [
   },
 ];
 
+// Sample accounts all share this id prefix. Real accounts synced from Helix and
+// Compass sit beside them, and only the lead sees those, so the lead's checks
+// compare the sample accounts alone.
+const SAMPLE_ACCOUNT = "11111111-0000-4000-8000-";
+// Broadcast tests reach only accounts using a sample product. Synced accounts have
+// no account_product rows, so a test broadcast can never queue for a real client.
+const SAMPLE_PRODUCT_KEYS = ["workforce_analytics", "campaign_studio", "spend_intelligence", "ops_command", "risk_shield"];
+
 const JUNIPER = "11111111-0000-4000-8000-000000000005"; // Elena's account, not Riya's
 const NORTHWIND = "11111111-0000-4000-8000-000000000001"; // Riya's own account
 const TIDEWATER = "11111111-0000-4000-8000-000000000008"; // unassigned
@@ -66,13 +74,17 @@ for (const expected of EXPECTED) {
   console.log(`\n${expected.who}`);
 
   // No .eq() on any owner column: the filter is entirely RLS's doing.
-  const { data, error } = await supabase.from("account").select("name").order("name");
+  const { data, error } = await supabase.from("account").select("id, name").order("name");
   if (error) {
     check("select accounts", false, error.message);
     continue;
   }
 
-  const names = data.map((r) => r.name);
+  const names = data.filter((r) => r.id.startsWith(SAMPLE_ACCOUNT)).map((r) => r.name);
+  const syncedSeen = data.length - names.length;
+  if (expected.email !== "lead@example.com") {
+    check("sees no synced (real) accounts", syncedSeen === 0, `${syncedSeen} synced`);
+  }
   check(
     `sees exactly ${expected.accounts.length} account(s)`,
     JSON.stringify(names) === JSON.stringify(expected.accounts),
@@ -90,7 +102,7 @@ for (const expected of EXPECTED) {
   const leakedNames = [...new Set((leaked ?? []).map((r) => r.account?.name).filter(Boolean))];
   check(
     "contacts are limited to visible accounts",
-    leakedNames.every((n) => expected.accounts.includes(n)),
+    expected.email === "lead@example.com" || leakedNames.every((n) => expected.accounts.includes(n)),
     `${contactCount ?? 0} contacts across ${leakedNames.length} account(s)`,
   );
 
@@ -454,22 +466,25 @@ for (const expected of EXPECTED) {
   check("an owner cannot create a broadcast", !!ownerCampaignError || !ownerCampaign?.length,
     ownerCampaignError ? ownerCampaignError.message : "CREATED");
 
-  // The lead launches a broadcast to engaged contacts at existing customers.
+  // The lead launches a broadcast to engaged contacts at existing customers, but
+  // only in test mode: never risk a live send from a verification run.
+  const testMode = mode === "dry_run";
+  check("sending is in test mode, so the broadcast checks can run", testMode, `mode ${mode}`);
   const sendsBefore = (await lead.client.from("account_overview").select("sends_this_month").eq("account_id", NORTHWIND).single()).data?.sends_this_month;
   const { data: campaign, error: campaignError } = await lead.client
     .from("campaign")
     .insert({
       name: `${TAG} broadcast`, subject: `${TAG} broadcast for {{account_name}}`,
       body_text: "Hi {{contact_first_name}}, test broadcast from {{sender_first_name}}.",
-      audience: { lifecycle: ["existing"], contact_types: ["engaged"] },
+      audience: { lifecycle: ["existing"], contact_types: ["engaged"], product_keys: SAMPLE_PRODUCT_KEYS },
     })
     .select("id")
     .single();
   check("the lead can create a broadcast", !campaignError, campaignError?.message ?? "created");
 
-  if (campaign) {
+  if (campaign && testMode) {
     const { data: preview } = await lead.client.rpc("preview_campaign_audience", {
-      p_audience: { lifecycle: ["existing"], contact_types: ["engaged"] },
+      p_audience: { lifecycle: ["existing"], contact_types: ["engaged"], product_keys: SAMPLE_PRODUCT_KEYS },
     });
     const peter = (preview ?? []).find((r) => r.contact_id === "44444444-0000-4000-8000-000000000402");
     check("the audience preview skips an opted-out contact with the reason", peter?.skip_reason === "opted_out",
@@ -530,6 +545,62 @@ for (const expected of EXPECTED) {
   for (const s of [riya, elena, lead]) await s.client.auth.signOut();
 }
 
+// Cortex sync tables: readable per account, never writable by a signed-in user.
+{
+  console.log("\nCortex sync tables (Helix and Compass)");
+  const signIn = async (email) => {
+    const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(`sign in ${email}: ${error.message}`);
+    return { client, id: data.user.id };
+  };
+  const riya = await signIn("pm@example.com");
+  const lead = await signIn("lead@example.com");
+
+  const { data: syncedAccounts } = await lead.client.from("account_source").select("account_id").limit(1);
+  const realAccount = syncedAccounts?.[0]?.account_id ?? null;
+
+  for (const table of ["account_source", "account_context", "account_engagement", "account_pending_owner"]) {
+    const { data: rows, error } = await riya.client.from(table).select("account_id").limit(1000);
+    check(`an owner reads ${table} only for their own accounts`, !error && (rows ?? []).every((r) => r.account_id.startsWith(SAMPLE_ACCOUNT)),
+      error ? error.message : `${rows?.length ?? 0} row(s)`);
+  }
+
+  if (realAccount) {
+    const { data: leadRows } = await lead.client.from("account_engagement").select("id").eq("account_id", realAccount).limit(1);
+    check("the lead reads synced engagements", Array.isArray(leadRows), `${leadRows?.length ?? 0} row(s) on one account`);
+
+    const { data: riyaContacts } = await riya.client.from("contact").select("id").eq("account_id", realAccount);
+    check("an owner can't read contacts on a synced account they don't own", (riyaContacts ?? []).length === 0,
+      `${riyaContacts?.length ?? 0} row(s)`);
+  } else {
+    console.log("  SKIP  no synced accounts yet (run npm run sync)");
+  }
+
+  const { error: ctxInsert } = await lead.client.from("account_context").insert({ account_id: NORTHWIND, client_brief: "forged" });
+  check("even the lead can't write account_context (sync only)", !!ctxInsert, ctxInsert ? ctxInsert.message : "INSERTED");
+  if (!ctxInsert) await lead.client.from("account_context").delete().eq("account_id", NORTHWIND);
+
+  const { error: engInsert } = await riya.client.from("account_engagement").insert({
+    account_id: NORTHWIND, source_system: "helix", external_id: "forged", kind: "project", name: "forged",
+  });
+  check("an owner can't write account_engagement", !!engInsert, engInsert ? engInsert.message : "INSERTED");
+
+  const { error: linkInsert } = await lead.client.from("account_source").insert({
+    source_system: "compass", external_id: "forged", account_id: NORTHWIND, source_name: "forged",
+  });
+  check("even the lead can't relink account_source", !!linkInsert, linkInsert ? linkInsert.message : "INSERTED");
+
+  const { error: pendingInsert } = await lead.client.from("account_pending_owner").insert({
+    account_id: TIDEWATER, email: "someone@lyzr.ai", role: "csm", is_primary: true, source_system: "compass",
+  });
+  check("even the lead can't add a pending owner (sync only)", !!pendingInsert, pendingInsert ? pendingInsert.message : "INSERTED");
+  if (!pendingInsert) await lead.client.from("account_pending_owner").delete().eq("email", "someone@lyzr.ai");
+  if (!linkInsert) await lead.client.from("account_source").delete().eq("external_id", "forged");
+
+  for (const s of [riya, lead]) await s.client.auth.signOut();
+}
+
 // The anon key with no session must see nothing at all.
 {
   const anon = createClient(url, anonKey, {
@@ -539,6 +610,10 @@ for (const expected of EXPECTED) {
   console.log("\nUnauthenticated (anon key only)");
   check("sees no accounts", !!error || (data ?? []).length === 0,
     error ? error.message : `${(data ?? []).length} rows`);
+  for (const table of ["account_source", "account_context", "account_engagement", "account_pending_owner"]) {
+    const { data: rows, error: tableError } = await anon.from(table).select("account_id").limit(1);
+    check(`sees no ${table}`, !!tableError || (rows ?? []).length === 0, tableError ? tableError.message : `${(rows ?? []).length} rows`);
+  }
 }
 
 console.log(failures === 0 ? "\nAll RLS checks passed." : `\n${failures} RLS check(s) FAILED.`);

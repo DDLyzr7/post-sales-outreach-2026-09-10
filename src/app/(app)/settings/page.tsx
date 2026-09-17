@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/format";
 import { missingMailboxSettings } from "@/lib/microsoft/oauth";
 import { loadPolicies } from "@/lib/policy";
 import { createClient } from "@/lib/supabase/server";
+import type { SyncJobSummary } from "@/lib/jobs/sync";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,55 @@ function timeAgo(iso: string | null): string {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   return hours < 48 ? `${hours} h ago` : formatDate(iso);
+}
+
+/** The last sync's counts, plus what the lead may need to act on. */
+function SyncSummary({ summary }: { summary: SyncJobSummary }) {
+  if (!summary.accounts) return null;
+  const { accounts, contacts, owners, unpaired, warnings } = summary;
+  return (
+    <details className="w-full">
+      <summary className="cursor-pointer text-muted">
+        {accounts.created + accounts.updated} accounts ({accounts.inBoth} in both systems) · {contacts.created + contacts.updated} contacts ·{" "}
+        {owners.added} owners added
+        {unpaired.compass.length + unpaired.helix.length ? ` · ${unpaired.compass.length + unpaired.helix.length} unpaired` : ""}
+        {warnings.length ? ` · ${warnings.length} warning${warnings.length === 1 ? "" : "s"}` : ""}
+      </summary>
+      <div className="mt-2 space-y-2 text-muted">
+        <p>
+          Helix {summary.helixClients} clients, Compass {summary.compassAccounts} accounts. Created {accounts.created}, updated{" "}
+          {accounts.updated}, lifecycle changed on {accounts.lifecycleChanged}, {summary.missingUpstream} no longer upstream.{" "}
+          {summary.engagements} projects and use cases. Contacts: {contacts.created} new, {contacts.updated} updated. Owners:{" "}
+          {owners.added} added, {owners.retired} retired.
+        </p>
+        {owners.notSignedUp?.length ? (
+          <p>
+            Owners who haven&apos;t signed in yet ({owners.pending ?? 0} account roles waiting; each gets access at first
+            sign-in): {owners.notSignedUp.join(", ")}
+          </p>
+        ) : null}
+        {owners.unresolvedNames?.length ? (
+          <p>
+            Compass owner names with no matching email: {owners.unresolvedNames.join("; ")}. Map a name to an email in{" "}
+            <code>cortex_sync.people</code>.
+          </p>
+        ) : null}
+        {summary.withoutOwner?.length ? (
+          <p className="text-warn">No owner in Helix or Compass: {summary.withoutOwner.join(", ")}</p>
+        ) : null}
+        {unpaired.compass.length || unpaired.helix.length ? (
+          <p>
+            Only in Compass: {unpaired.compass.join(", ") || "none"}. Only in Helix: {unpaired.helix.join(", ") || "none"}. To pair
+            two that are the same client, add <code>{"\"<compass id>\": \"<helix id>\""}</code> to{" "}
+            <code>cortex_sync.account_matches</code> before they first sync, or merge them afterwards.
+          </p>
+        ) : null}
+        {warnings.map((warning, index) => (
+          <p key={index} className="text-warn">{warning}</p>
+        ))}
+      </div>
+    </details>
+  );
 }
 
 export default async function SettingsPage({
@@ -130,11 +180,12 @@ export default async function SettingsPage({
             <Card className="p-4 text-xs">
               <h3 className="text-sm font-semibold">Jobs</h3>
               <p className="mt-0.5 text-muted">
-                The send job delivers queued emails; the tracking job reads replies and bounces. Both run through
-                /api/jobs with CRON_SECRET (<code>npm run jobs</code> locally).
+                The send job delivers queued emails; the tracking job reads replies and bounces; the sync mirrors
+                accounts, owners and contacts from Helix and Compass. All run through /api/jobs with CRON_SECRET
+                (<code>npm run jobs</code> locally, <code>npm run sync</code> for one sync).
               </p>
               <dl className="mt-3 space-y-2">
-                {["send", "track"].map((job) => {
+                {["send", "track", "sync"].map((job) => {
                   const run = lastRun(job);
                   return (
                     <div key={job} className="flex flex-wrap items-center gap-2">
@@ -149,6 +200,7 @@ export default async function SettingsPage({
                             {run.ok === false && typeof run.summary.error === "string" ? (
                               <span className="text-bad">{run.summary.error}</span>
                             ) : null}
+                            {job === "sync" && run.ok ? <SyncSummary summary={run.summary as SyncJobSummary} /> : null}
                           </>
                         ) : (
                           <span className="text-muted">never run</span>

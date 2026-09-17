@@ -388,12 +388,11 @@ first thing to run.
 
 **Blocking the integrations track (and real data):**
 
-1. **Cortex access.** The app has no screens to create accounts or contacts, so real
-   data needs a sync from Cortex. Its subtools each have their own endpoint through the
-   Cortex SDK:
-   - **Helix** holds accounts and their status.
-   - **Compass** holds owner info and the account mapping.
-   - We're waiting on SDK docs, access, and field details from the Cortex team.
+1. **Cortex sync (answered 2026-09-17).** Helix (clients, projects, contacts) and Compass
+   (lifecycle, CSM, health, use cases, contacts) sync hourly with `npm run jobs`, or once with
+   `npm run sync`. Set `HELIX_*` and `COMPASS_*` in `.env.local`. The two systems share no
+   id, so accounts pair by name or by `app_policy.cortex_sync.account_matches`. Still open:
+   a shared id from the Cortex team.
 
 **Needed before Phase 3's Skott connector:**
 

@@ -354,7 +354,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
 
   <main>
     <header class="masthead">
-      <span class="label">Walkthrough reference &middot; 13 Sep 2026</span>
+      <span class="label">Walkthrough reference &middot; 17 Sep 2026</span>
       <h1>Post-Sales Outreach</h1>
       <p class="lede">
         One place for the post-sales team to own email to existing clients: who to reach, what
@@ -364,9 +364,9 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
       </p>
       <dl class="facts">
         <div><dt class="label">Features</dt><dd>48</dd></div>
-        <div><dt class="label">Built</dt><dd>42 <small>phases 1 to 7, plus CI</small></dd></div>
-        <div><dt class="label">Building next</dt><dd>0 <small>waiting on Skott and Cortex</small></dd></div>
-        <div><dt class="label">Waiting on answers</dt><dd>4 <small>of 6 still to build</small></dd></div>
+        <div><dt class="label">Built</dt><dd>44 <small>phases 1 to 7, CI and the Cortex sync</small></dd></div>
+        <div><dt class="label">Building next</dt><dd>0 <small>waiting on Skott</small></dd></div>
+        <div><dt class="label">Waiting on answers</dt><dd>2 <small>of 4 still to build</small></dd></div>
       </dl>
     </header>
 
@@ -413,9 +413,9 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
           <p>Outreach consistency, account coverage, relevant material, broadcast results, scoped by role. Awaiting review.</p>
         </li>
         <li class="phase is-track">
-          <div class="phase-top"><span class="phase-num">Track</span><span class="chip input">Needs input</span></div>
+          <div class="phase-top"><span class="phase-num">Track</span><span class="chip built">Built</span></div>
           <h3>Integrations</h3>
-          <p>Apollo enrichment built. Helix and Compass sync wait on the Cortex SDK.</p>
+          <p>Helix and Compass sync and Apollo enrichment built. Awaiting review.</p>
         </li>
       </ol>
       <p class="shift">
@@ -429,10 +429,10 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
     <div class="filter" role="group" aria-label="Filter features by status">
       <span class="label">Show</span>
       <button type="button" data-filter="all" aria-pressed="true">All <span class="n">48</span></button>
-      <button type="button" data-filter="built" aria-pressed="false">Built <span class="n">42</span></button>
+      <button type="button" data-filter="built" aria-pressed="false">Built <span class="n">44</span></button>
       <button type="button" data-filter="next" aria-pressed="false">Building next <span class="n">0</span></button>
       <button type="button" data-filter="planned" aria-pressed="false">Planned <span class="n">2</span></button>
-      <button type="button" data-filter="input" aria-pressed="false">Needs input <span class="n">4</span></button>
+      <button type="button" data-filter="input" aria-pressed="false">Needs input <span class="n">2</span></button>
     </div>
 
     <div class="areas">
@@ -587,15 +587,15 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
       <section id="integrations" class="area" aria-labelledby="integrations-h">
         <div class="section-head">
           <h2 id="integrations-h">Data and integrations</h2>
-          <p>Where accounts, contacts and lifecycle come from. The account and contact tables
-            already carry the fields a sync fills in.</p>
+          <p>Where accounts, contacts and lifecycle come from: an hourly sync from Helix and
+            Compass, plus Apollo for leaders we don't talk to yet.</p>
         </div>
         <div class="table-wrap">
           <table>
             <thead><tr><th>ID</th><th>Feature</th><th class="status">Status</th><th class="phase-col">Phase</th><th class="asked">Asked in</th></tr></thead>
             <tbody>
-              <tr data-status="input"><td class="id">IN-01</td><td class="what"><strong>Helix sync</strong><span>Accounts and their customer status from Helix, one of the Cortex subtools, through its own endpoint in the Cortex SDK.</span><em>Needed before real accounts appear: the app has no screen to create accounts. Waiting on SDK docs and access.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
-              <tr data-status="input"><td class="id">IN-02</td><td class="what"><strong>Compass sync</strong><span>Who owns each account, and how Compass accounts map to Helix accounts. Another Cortex subtool with its own endpoint.</span><em>Waiting on SDK docs and access.</em></td><td class="status"><span class="chip input">Needs input</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">IN-01</td><td class="what"><strong>Helix sync</strong><span>Clients, their projects and project contacts from Helix, one of the Cortex subtools. Accounts link to their Helix client, and project managers of current projects become co-owners.</span><em>Built 17 Sep. Runs hourly with the other jobs, or on demand with npm run sync.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">IN-02</td><td class="what"><strong>Compass sync</strong><span>Customer status, the CSM as primary owner, health, renewal and contract dates, use cases, stakeholders and the account plan. Compass accounts are paired with Helix clients by name, or by a pairing the lead sets.</span><em>Built 17 Sep. Shown on each account under "From Helix and Compass".</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
               <tr data-status="built"><td class="id">IN-03</td><td class="what"><strong>Leadership enrichment</strong><span>Find CHRO, CMO and CFO contacts at an account with Apollo, pick who to add, and they join the leadership committee.</span><em>Searching is free; adding someone reveals their email and uses Apollo credits. Switches on with APOLLO_API_KEY.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
             </tbody>
           </table>
@@ -646,6 +646,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
             <li><span class="when">13 Sep 2026</span><strong>Cold emails from the owner's mailbox too</strong><span>These accounts already know us and hear from us about once a month. Cold emails carry an unsubscribe line.</span></li>
             <li><span class="when">13 Sep 2026</span><strong>Broadcasts sit outside the cap</strong><span>They don't count toward the monthly limit and aren't blocked by it.</span></li>
             <li><span class="when">13 Sep 2026</span><strong>Apollo for leadership enrichment</strong><span>Free search, paid reveal only for the people chosen.</span></li>
+            <li><span class="when">17 Sep 2026</span><strong>Compass leads, Helix fills in</strong><span>Lifecycle and the primary owner (the CSM) come from Compass; Helix adds domain, projects and project managers as co-owners. Contacts come from both.</span></li>
             <li><span class="when">Phase 1</span><strong>Store the full email</strong><span>The full body plus a pin to the template version it came from.</span></li>
           </ul>
         </div>
@@ -653,8 +654,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
           <h3>Needs an answer</h3>
           <ul>
             <li><span class="blocks">Blocks CL-04 &middot; phase 3</span><strong>Skott API docs and a key</strong><span>Which endpoints list collateral, how they're tagged, whether items are files or links, and how to authenticate.</span></li>
-            <li><span class="blocks">Blocks IN-01, IN-02</span><strong>Cortex SDK docs and access</strong><span>Helix (accounts, status) and Compass (owners, account mapping) each have their own endpoint. Asked the Cortex team for docs, keys and field details.</span></li>
-            <li><span class="blocks">Shapes TG-04</span><strong>Which Helix statuses mean churned</strong><span>Helix holds account status. Still to learn which values mean existing, churned and prospect. Until the sync lands, the lead sets it by hand.</span></li>
+            <li><span class="blocks">Sharpens IN-01, IN-02</span><strong>A shared id for Helix and Compass</strong><span>The two systems share no id, so accounts are paired by name. A few pairs need confirming by hand.</span></li>
             <li><span class="blocks">Blocks live sending</span><strong>Azure mailbox settings</strong><span>A client secret, the redirect URI, and admin consent for Mail.Send and Mail.ReadBasic on the reused app registration. Until then sending runs in test mode.</span></li>
             <li><span class="blocks">Blocks IN-03 going live</span><strong>Apollo API key</strong><span>Enrichment is built and waits for the key.</span></li>
             <li><span class="blocks">Open</span><strong>What happens to Comms Tracker</strong><span>It is live today. Retire it, merge it in, or keep both once this ships?</span></li>
@@ -664,7 +664,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
     </section>
 
     <p class="footnote">
-      Status reflects the code on 13 Sep 2026. Built means in the repository, passing
+      Status reflects the code on 17 Sep 2026. Built means in the repository, passing
       type-check, lint and build, and running on the live Supabase project, where
       <code>npm run db:verify-rls</code> passes every check.
     </p>

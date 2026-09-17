@@ -6,7 +6,9 @@ import type { CollateralFact, SendPath } from "@/lib/types";
  * The facts Claude writes and reviews a draft from, as one block of text. Both
  * calls read the same brief, so the review checks the draft against exactly
  * what the writer was given. Revenue, health, renewal and enrichment details are
- * left out on purpose: they must never end up in an email.
+ * left out on purpose: they must never end up in an email. So are Compass's CS
+ * notes, risks and sentiment; from Helix and Compass the brief takes only the
+ * names and stages of current work and the recipient's stakeholder role.
  */
 
 const PAST_BODY_LIMIT = 800;
@@ -52,6 +54,7 @@ export function buildBrief(
         `Function: ${FUNCTION_LABEL[contact.business_function]}`,
         `Contact type: ${CONTACT_TYPE_LABEL[contact.type]}`,
         `Relationship: ${contact.relationship_status}`,
+        ...(contact.stakeholder_role ? [`Stakeholder role: ${contact.stakeholder_role.replace(/_/g, " ")}`] : []),
       ].join("\n"),
     ),
   );
@@ -73,6 +76,17 @@ export function buildBrief(
       ].join("\n"),
     ),
   );
+
+  if (subject.engagements.length) {
+    parts.push(
+      section(
+        "current_work_with_us",
+        subject.engagements
+          .map((e) => `- ${e.name} (${e.kind === "use_case" ? "use case" : "project"}${e.stage ? `, ${e.stage.replace(/_/g, " ")}` : ""})`)
+          .join("\n"),
+      ),
+    );
+  }
 
   if (contact.type === "committee" && subject.engagedContacts.length) {
     const teams = [...new Set(subject.engagedContacts.map((c) => FUNCTION_LABEL[c.business_function]))];

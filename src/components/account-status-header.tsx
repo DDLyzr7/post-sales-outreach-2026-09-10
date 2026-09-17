@@ -5,7 +5,7 @@ import {
   formatArr, formatDate, relativeDays,
 } from "@/lib/format";
 import { stalenessOf, type Policies } from "@/lib/policy";
-import type { AccountOverview, TeamMember } from "@/lib/types";
+import type { AccountOverview, PendingOwner, TeamMember } from "@/lib/types";
 
 /**
  * The account status header. Both numbers on it - the last-activity line and
@@ -15,11 +15,13 @@ import type { AccountOverview, TeamMember } from "@/lib/types";
 export function AccountStatusHeader({
   account,
   team,
+  pendingOwners = [],
   products,
   policies,
 }: {
   account: AccountOverview;
   team: TeamMember[];
+  pendingOwners?: PendingOwner[];
   products: { name: string; status: string }[];
   policies: Policies;
 }) {
@@ -74,8 +76,11 @@ export function AccountStatusHeader({
           <div className="flex gap-1.5">
             <dt>Team</dt>
             <dd className="text-foreground">
-              {team.length
-                ? team.map((m) => `${m.full_name} (${ROLE_SHORT[m.role]})`).join(", ")
+              {team.length || pendingOwners.length
+                ? [
+                    ...team.map((m) => `${m.full_name} (${ROLE_SHORT[m.role]})`),
+                    ...pendingOwners.map((p) => `${p.full_name ?? p.email} (${ROLE_SHORT[p.role]}, not signed in yet)`),
+                  ].join(", ")
                 : "unassigned"}
             </dd>
           </div>

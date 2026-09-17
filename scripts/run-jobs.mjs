@@ -1,16 +1,25 @@
 #!/usr/bin/env node
 /**
- * Runs the send and tracking jobs locally, the way a scheduler will once the app
- * is hosted: the send job every 30 seconds, the tracking job every 3 minutes.
- * Both go through /api/jobs/<job> with CRON_SECRET, so the dev server must be up.
+ * Runs the jobs locally, the way a scheduler will once the app is hosted: the send
+ * job every 30 seconds, the tracking job every 3 minutes and the Cortex sync every
+ * hour. All go through /api/jobs/<job> with CRON_SECRET, so the dev server must be up.
  *
- *   npm run jobs              (keeps running)
- *   npm run jobs -- --once    (one pass of each, then exits)
+ *   npm run jobs                       (keeps running)
+ *   npm run jobs -- --once             (one pass of each, then exits)
+ *   npm run sync                       (one Cortex sync, then exits)
  */
 const base = (process.env.APP_BASE_URL ?? "http://localhost:3001").replace(/\/$/, "");
 const secret = process.env.CRON_SECRET;
 if (!secret) {
   console.error("CRON_SECRET is not set in .env.local.");
+  process.exit(1);
+}
+
+const SCHEDULE = { send: 30_000, track: 180_000, sync: 3_600_000 };
+const onlyIndex = process.argv.indexOf("--only");
+const jobs = onlyIndex > -1 ? [process.argv[onlyIndex + 1]] : Object.keys(SCHEDULE);
+if (!jobs.every((job) => job in SCHEDULE)) {
+  console.error(`Unknown job. Choose from: ${Object.keys(SCHEDULE).join(", ")}.`);
   process.exit(1);
 }
 
@@ -31,11 +40,12 @@ async function run(job) {
 }
 
 if (process.argv.includes("--once")) {
-  const ok = (await run("send")) & (await run("track"));
+  let ok = true;
+  for (const job of jobs) ok = (await run(job)) && ok;
   process.exit(ok ? 0 : 1);
 }
 
-await run("send");
-await run("track");
-setInterval(() => run("send"), 30_000);
-setInterval(() => run("track"), 180_000);
+for (const job of jobs) {
+  await run(job);
+  setInterval(() => run(job), SCHEDULE[job]);
+}

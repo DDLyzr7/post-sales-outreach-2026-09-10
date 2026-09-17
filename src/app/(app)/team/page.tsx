@@ -2,13 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import {
-  getCurrentUser, listAssignments, listMyAccounts, listTeammates,
+  getCurrentUser, listAssignments, listMyAccounts, listPendingOwners, listTeammates,
 } from "@/lib/db/queries";
 import { loadPolicies, stalenessOf } from "@/lib/policy";
 import { Badge, Card, EmptyState, LIFECYCLE_TONE } from "@/components/ui";
 import { AddOwnerForm, LifecycleForm, RemoveOwnerButton } from "@/components/owner-forms";
 import { LIFECYCLE_LABEL, ROLE_SHORT, formatDate, relativeDays } from "@/lib/format";
-import type { Assignment, Teammate } from "@/lib/types";
+import type { Assignment, PendingOwner, Teammate } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +24,13 @@ type Coverage = {
 
 export default async function TeamPage() {
   const supabase = await createClient();
-  const [user, accounts, assignments, teammates, policies] = await Promise.all([
+  const [user, accounts, assignments, teammates, policies, pending] = await Promise.all([
     getCurrentUser(),
     listMyAccounts(),
     listAssignments(),
     listTeammates(),
     loadPolicies(supabase),
+    listPendingOwners(),
   ]);
 
   // A convenience gate, not the boundary: RLS already scopes every read, and
@@ -42,6 +43,13 @@ export default async function TeamPage() {
     list.push(assignment);
     ownersByAccount.set(assignment.account_id, list);
   }
+
+  // Owners Helix or Compass name who haven't signed in: they get access at first sign-in.
+  const pendingByAccount = new Map<string, PendingOwner[]>();
+  for (const owner of pending) {
+    pendingByAccount.set(owner.account_id, [...(pendingByAccount.get(owner.account_id) ?? []), owner]);
+  }
+  const hasOwner = (accountId: string, ownerCount: number) => ownerCount > 0 || pendingByAccount.has(accountId);
 
   const accountById = new Map(accounts.map((a) => [a.account_id, a]));
 
@@ -67,12 +75,13 @@ export default async function TeamPage() {
     .filter((row) => row.owned > 0 || !row.teammate.is_admin)
     .sort((a, b) => b.owned - a.owned || a.teammate.full_name.localeCompare(b.teammate.full_name));
 
-  const unassigned = accounts.filter((a) => a.owner_count === 0).length;
+  const unassigned = accounts.filter((a) => !hasOwner(a.account_id, a.owner_count)).length;
+  const waitingPeople = new Set(pending.map((p) => p.email)).size;
   const assignable = teammates.filter((t) => !t.is_admin);
 
   const sortedAccounts = [...accounts].sort(
     (a, b) =>
-      Number(a.owner_count > 0) - Number(b.owner_count > 0) ||
+      Number(hasOwner(a.account_id, a.owner_count)) - Number(hasOwner(b.account_id, b.owner_count)) ||
       LIFECYCLE_ORDER[a.lifecycle_status] - LIFECYCLE_ORDER[b.lifecycle_status] ||
       a.name.localeCompare(b.name),
   );
@@ -90,6 +99,11 @@ export default async function TeamPage() {
         <div className="flex gap-2 text-xs">
           <Badge>{accounts.length} accounts</Badge>
           {unassigned > 0 ? <Badge tone="warn">{unassigned} without an owner</Badge> : null}
+          {waitingPeople > 0 ? (
+            <Badge title="Owners named in Helix or Compass. Each gets their accounts the first time they sign in.">
+              {waitingPeople} owners not signed in yet
+            </Badge>
+          ) : null}
         </div>
       </div>
 
@@ -169,6 +183,7 @@ export default async function TeamPage() {
             <tbody>
               {sortedAccounts.map((a) => {
                 const owners = ownersByAccount.get(a.account_id) ?? [];
+                const waiting = pendingByAccount.get(a.account_id) ?? [];
                 return (
                   <tr key={a.account_id} className="border-b border-line align-top last:border-b-0">
                     <td className="px-4 py-3">
@@ -186,10 +201,18 @@ export default async function TeamPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      {owners.length === 0 ? (
+                      {owners.length === 0 && waiting.length === 0 ? (
                         <Badge tone="warn">No owner</Badge>
                       ) : (
                         <ul className="flex flex-col gap-1.5">
+                          {waiting.map((p) => (
+                            <li key={`${p.email}:${p.role}`} className="flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="font-medium">{p.full_name ?? p.email}</span>
+                              <Badge>{ROLE_SHORT[p.role]}</Badge>
+                              {p.is_primary ? <Badge tone="accent">primary</Badge> : null}
+                              <Badge title={`${p.email} gets access the first time they sign in.`}>not signed in yet</Badge>
+                            </li>
+                          ))}
                           {owners.map((o) => (
                             <li key={o.id} className="flex flex-wrap items-center gap-1.5 text-xs">
                               <span className="font-medium">{o.full_name}</span>

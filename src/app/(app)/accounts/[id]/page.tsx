@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getAccountDetail, getCurrentUser } from "@/lib/db/queries";
 import { listOpenDrafts } from "@/lib/db/drafts";
 import { loadPolicies } from "@/lib/policy";
+import { AccountContextPanel } from "@/components/account-context";
 import { AccountStatusHeader } from "@/components/account-status-header";
 import { ContactPane } from "@/components/contact-pane";
 import type { DraftSummary } from "@/lib/types";
@@ -48,11 +49,19 @@ export default async function AccountPage({ params }: { params: Promise<{ id: st
       <AccountStatusHeader
         account={detail.overview}
         team={detail.team}
+        pendingOwners={detail.pendingOwners}
         products={detail.products}
         policies={policies}
       />
 
       <div className="mx-auto w-full max-w-[1400px] px-6 py-6">
+        <AccountContextPanel
+          context={detail.context}
+          engagements={detail.engagements}
+          industry={detail.industry}
+          region={detail.region}
+        />
+
         <div className="grid gap-5 lg:grid-cols-2">
           <ContactPane variant="engaged" contacts={detail.engaged} {...shared} />
           <ContactPane variant="committee" contacts={detail.committee} {...shared} />

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
-  AccountOverview, AppUser, Assignment, AssignmentRole, Contact, CrossSellIntro,
+  AccountContext, AccountEngagement, AccountOverview, AppUser, PendingOwner, Assignment, AssignmentRole, Contact, CrossSellIntro,
   SuggestedCollateral, TeamMember, Teammate,
 } from "@/lib/types";
 
@@ -47,6 +47,13 @@ export type AccountDetail = {
   committee: Contact[];
   collateralByContact: Map<string, SuggestedCollateral[]>;
   introByContact: Map<string, CrossSellIntro>;
+  /** Compass's CS picture, or null for an account Compass doesn't cover. */
+  context: AccountContext | null;
+  engagements: AccountEngagement[];
+  /** Owners named upstream who get access at their first sign-in. */
+  pendingOwners: PendingOwner[];
+  industry: string | null;
+  region: string | null;
 };
 
 /** Returns null when the account does not exist OR the caller cannot see it -
@@ -62,7 +69,7 @@ export async function getAccountDetail(accountId: string): Promise<AccountDetail
 
   if (!overview) return null;
 
-  const [teamRes, productRes, contactRes, collateralRes, introRes] = await Promise.all([
+  const [teamRes, productRes, contactRes, collateralRes, introRes, contextRes, engagementRes, accountRes, pendingRes] = await Promise.all([
     supabase
       .from("account_team_member")
       .select("*")
@@ -75,13 +82,25 @@ export async function getAccountDetail(accountId: string): Promise<AccountDetail
     supabase
       .from("contact")
       .select(
-        "id, account_id, type, full_name, title, business_function, email, phone, relationship_status, is_opted_out, opt_out_reason, source, enrichment_confidence",
+        "id, account_id, type, full_name, title, business_function, email, phone, relationship_status, is_opted_out, opt_out_reason, source, enrichment_confidence, stakeholder_role, influence_level, sentiment, last_interaction_at",
       )
       .eq("account_id", accountId)
       .is("deleted_at", null)
       .order("full_name"),
     supabase.from("contact_suggested_collateral").select("*").eq("account_id", accountId),
     supabase.from("contact_cross_sell_intro").select("*").eq("account_id", accountId),
+    supabase.from("account_context").select("*").eq("account_id", accountId).maybeSingle(),
+    supabase
+      .from("account_engagement")
+      .select("id, source_system, kind, name, description, status, stage, health, owner_name, blocker, start_date, end_date, source_updated_at")
+      .eq("account_id", accountId)
+      .order("source_updated_at", { ascending: false, nullsFirst: false }),
+    supabase.from("account").select("industry, region").eq("id", accountId).maybeSingle(),
+    supabase
+      .from("account_pending_owner")
+      .select("account_id, email, full_name, role, is_primary")
+      .eq("account_id", accountId)
+      .order("is_primary", { ascending: false }),
   ]);
 
   const contacts = (contactRes.data ?? []) as Contact[];
@@ -112,6 +131,11 @@ export async function getAccountDetail(accountId: string): Promise<AccountDetail
     committee: contacts.filter((c) => c.type === "committee"),
     collateralByContact,
     introByContact,
+    context: (contextRes.data as AccountContext | null) ?? null,
+    engagements: (engagementRes.data ?? []) as AccountEngagement[],
+    pendingOwners: (pendingRes.data ?? []) as PendingOwner[],
+    industry: accountRes.data?.industry ?? null,
+    region: accountRes.data?.region ?? null,
   };
 }
 
@@ -146,6 +170,17 @@ export async function listAssignments(): Promise<Assignment[]> {
     full_name: row.owner?.full_name ?? "Unknown teammate",
     email: row.owner?.email ?? "",
   }));
+}
+
+/** Owners named in Helix or Compass who haven't signed in, on every account the caller can see. */
+export async function listPendingOwners(): Promise<PendingOwner[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("account_pending_owner")
+    .select("account_id, email, full_name, role, is_primary")
+    .order("is_primary", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as PendingOwner[];
 }
 
 /** The colleague directory: everyone active who could own an account. */

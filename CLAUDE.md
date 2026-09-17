@@ -20,9 +20,9 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-13 (Phases 5–7)._
+_Last updated 2026-09-17 (Cortex sync)._
 
-## Status — Phases 1–7 built (Phase 3 minus Skott), Apollo enrichment and Microsoft sign-in built; all awaiting review
+## Status — Phases 1–7 built (Phase 3 minus Skott), Cortex sync, Apollo enrichment and Microsoft sign-in built; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -41,13 +41,23 @@ global broadcast.
 | 5 — sending: owner's Microsoft 365 mailbox on both paths, cap and opt-outs enforced, delivery tracking | **done, unreviewed** (2026-09-13). In **test mode** (`app_policy.sending.mode = dry_run`); live sending waits on the Azure mailbox settings (open question 10) |
 | 6 — global broadcast to all accounts | **done, unreviewed** (2026-09-13). Broadcasts sit outside the cap |
 | 7 — reporting: outreach consistency, account coverage, relevant material, broadcast results | **done, unreviewed** (2026-09-13) |
-| Track — integrations: Cortex sync (Helix: accounts and status; Compass: owners and account mapping), leadership enrichment | Apollo enrichment **built** (needs `APOLLO_API_KEY`); Cortex sync waiting on SDK docs and access |
+| Track — integrations: Cortex sync (Helix: clients, projects, contacts; Compass: lifecycle, CSM, health, use cases, contacts), leadership enrichment | Cortex sync **built and run against live data** (2026-09-17, 59 real accounts); Apollo enrichment **built** (needs `APOLLO_API_KEY`) |
 | P1 — Lyzr sign-in with Microsoft | built and migration pushed; waiting on the user's Azure and Supabase dashboard settings (open question 8) |
 
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
 phase's open questions before writing code that depends on them. (On 2026-09-13 the user
 asked for everything buildable in one pass; that was a one-off, so stop for review again
 from here.)
+
+### Verification state (2026-09-17)
+
+- **Cortex sync and owners** (entries 29–30): `tsc`, `eslint`, `next build`, the SQL parse
+  (16 files, plus the new PL/pgSQL body) and `db:verify-rls` all pass. Migrations
+  `20260917000100` and `…200` are **pushed**. The sync has run against live Helix and Compass
+  (59 real accounts). Pages were fetched as the lead and as Riya. The first-sign-in claim was
+  tested with a throwaway user. **Not verified:** a real owner signing in with Microsoft
+  (sign-in settings not done) and a Claude draft on a real account (deliberately not run).
+- **Committed and pushed** at the user's request (2026-09-17).
 
 ### Verification state (2026-09-13)
 
@@ -424,6 +434,84 @@ from here.)
     - **Suggested next step given to the user:** chase Krish for Cortex. If the Azure
       mailbox settings land, test a real send from the user's own mailbox.
 
+**2026-09-17:**
+
+29. **The user supplied the Helix and Compass keys,** and asked for the sync plus "any more
+    useful information across Helix and Compass". Both keys are in `.env.local` (values never
+    printed) and were pasted in chat, so **rotate them** once the sync has settled.
+    - **Helix:** `HELIX_BASE_URL` `https://applied-ai.lyzr.app` + `HELIX_API_KEY` (`x-api-key`).
+      `/api/v3/workspace` (clients → projects, PM) and `/api/v3/projects` (contacts). Same API
+      as Comms Tracker's adapter.
+    - **Compass:** `COMPASS_BASE_URL` `https://cs-intelligence-be.lyzr.app` + `COMPASS_API_KEY`
+      (`Authorization: Bearer`). `/api/v1/workspace/accounts?page=&page_size=` (`has_more`).
+      Status `active`/`churned`, CSM with email, health band/score/narrative, ARR, renewal and
+      contract dates, use cases, contacts (stakeholder role, influence, sentiment), strategy
+      notes, account plan, updates.
+    - **Decisions (user, 2026-09-17):** lifecycle from Compass, falling back to Helix
+      (active → existing, inactive → churned). The Compass CSM is the primary owner, matched by
+      email; PMs of current Helix projects are co-owners. Contacts from Compass, plus Helix
+      project contacts not already there.
+    - **Migration `20260917000100_cortex_sync`,** pushed: `account.industry`/`region`,
+      `account_source` (links, both systems), `account_context` (Compass CS picture),
+      `account_engagement` (Helix projects + Compass use cases),
+      `account_assignment.source_system`, contact stakeholder fields, `job_run` allows `sync`,
+      and the `cortex_sync` policy row (mappings, internal domains, `account_matches`).
+    - **Code:** `src/lib/cortex/{helix,compass}.ts`, `src/lib/jobs/sync.ts`, `/api/jobs/sync`,
+      `npm run sync`; `npm run jobs` runs it hourly. Account page shows "From Helix and Compass"
+      (`src/components/account-context.tsx`) and stakeholder badges on contacts. Settings →
+      Jobs shows the last sync's counts, unpaired names and not-signed-up owners. The drafting
+      brief gains current project/use-case names and stages and the stakeholder role (never
+      health, ARR, CS notes, risks or sentiment).
+    - **Pairing:** no shared id, so name match (normalised) or `account_matches`. When a pair
+      is added after both were synced, the sync deletes the Helix-only duplicate only if it has
+      no emails, opt-outs, lead-added owners or other links; otherwise it warns.
+    - **First runs:** 64 created, then 5 pairs added to `account_matches` (Awestruck, Energy
+      Worldnet/EWN, Hunt Military, LBBC, Nordstrom/Nordstorm) and merged → **59 real accounts**
+      (44 in both, 5 Compass-only, 10 Helix-only), 35 existing / 24 churned, 236 engagements,
+      129 contacts (none internal, no duplicates). **0 owners assigned**: none of the 18 CSM/PM
+      emails has signed in yet.
+    - **Unconfirmed pairs, asked the user:** Berry Brothers & Rudd (AND Digital) ↔ AND Digital;
+      Camp Huntington ↔ Contact Huntington.
+    - **`verify-rls` changed:** owners' checks now assert they see no synced accounts; the
+      lead's account check compares sample accounts only; broadcast checks are limited to
+      sample product keys and skipped unless sending is `dry_run` (they'd otherwise queue test
+      broadcasts to real clients). New checks for the three sync tables. All pass.
+    - **Verified:** `tsc`, `eslint`, `next build`, SQL parse (15 files), `db:verify-rls`, and
+      page renders as the lead (67 accounts, context panel on a Compass and a Helix-only
+      account) and as Riya (3 accounts, real accounts 404). Not verified: a real owner's view
+      (nobody real has signed in) and a Claude draft on a real account (deliberately not run).
+    - **Risk raised with the user:** the sample lead `lead@example.com` has a documented
+      password and now sees real client data, including ARR and CS notes. Password sign-in is
+      localhost-only in the app, but Supabase's password endpoint accepts it from anywhere with
+      the publishable key. Fix before hosting at the latest.
+
+30. **Every named owner gets access (user, 2026-09-17):** "add all the account owners… in
+    case of co-owner, grant both of them access."
+    - **Owner sources** (`cortex_sync.owners`): Compass CSM → `csm`, primary; Compass project
+      manager → `pm`; Compass sales rep → `cal`; Helix PMs of current projects → `pm`, or the
+      PM of the latest project when none is current. All co-owners get access.
+    - **Compass PM and sales rep are names only.** They're matched to an email when exactly
+      one known Lyzr person fits (full name, first name, or email local part). Known people come
+      from Helix PMs, Compass CSMs and `app_user`. Otherwise they're reported under
+      `unresolvedNames`. `cortex_sync.people` maps a lowercase name to an email by hand. lyzr.com
+      addresses fold into lyzr.ai when both exist (April).
+    - **No pre-created sign-in accounts.** Pre-creating auth users risked a failed first
+      Microsoft sign-in if Supabase didn't link the identity (`app_user` email is unique).
+      Instead, migration `20260917000200_pending_owners` (pushed) adds
+      `account_pending_owner`, which the sync rewrites each run. `app.claim_pending_owners`
+      (after insert on `app_user`, SECURITY DEFINER) turns a person's rows into assignments at
+      first sign-in, demoting other primaries when theirs is primary. Tested with a throwaway
+      `@example.com` user on sample accounts (created, claimed, deleted).
+    - **Shown:** Team coverage lists waiting owners as "not signed in yet" and no longer counts
+      those accounts as unowned. The account header lists them too. Settings → Jobs shows
+      unresolved names and accounts with no owner anywhere.
+    - **Result:** 105 owner roles waiting for 18 people. Only **JP Morgan Chase** and
+      **Neuralgo (GoML)** have no owner anywhere.
+    - **Unresolved Compass names, asked the user for emails:** Siva (8 accounts), Praveen (4),
+      Arko (4), Jesse (3), Ravi (3), Reid (3), Naveed (2), Akanksha Kapoor, Amol, Bharathan
+      (probably barathan@), KJ, Shefali, Siddharth (probably sid@).
+    - `verify-rls` covers the new table; all checks pass.
+
 **Priority order the user follows, with status (2026-09-13):**
 
 | Stage | Scope | Status |
@@ -437,12 +525,12 @@ from here.)
 | **P6** | Reporting | **Built** 2026-09-13 |
 | **P7** | Compass; enrichment; Comms Tracker's future | Apollo enrichment **built** (needs a key). Compass waits on Krish; Comms Tracker undecided |
 
-**Stopped for review after Phases 5–7 (2026-09-13).**
-- **Next when answers arrive:** the Cortex sync once Krish replies, the Skott feed once its
-  API docs arrive (then CL-05 and CL-06), and live sending once the Azure mailbox settings
-  are in.
-- **Last:** Vercel hosting on the company account, with Vercel Cron calling `/api/jobs/send`
-  and `/api/jobs/track`.
+**Stopped for review after the Cortex sync and owners (2026-09-17).**
+- **Next when answers arrive:** owner emails for the unresolved Compass names (entry 30), the
+  Skott feed once its API docs arrive (then CL-05 and CL-06), and live sending once the Azure
+  mailbox settings are in.
+- **Last:** Vercel hosting on the company account, with Vercel Cron calling `/api/jobs/send`,
+  `/api/jobs/track` and `/api/jobs/sync`.
 
 **Waiting on the user:**
 - **Post-Sales Outreach:**
@@ -450,8 +538,14 @@ from here.)
     it is on), and add the rest of the Microsoft sign-in settings (open question 8).
   - **Review Phases 1–7** in the browser at http://localhost:3001: sign in as
     `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with Claude.
-  - **Answers to pass on:** Skott API docs and a key, and the Cortex answers from Krish
-    (open question 1).
+  - **Answers to pass on:** Skott API docs and a key. Confirm the two unconfirmed account
+    pairs (entry 29). Ask Krish whether Helix and Compass share an id.
+  - **Owners (entry 30):** emails for the 13 unresolved Compass names (add them to
+    `cortex_sync.people`); owners for JP Morgan Chase and Neuralgo (GoML); confirm Rijo as
+    primary CSM on 19 accounts.
+  - **Sample lead exposure:** `lead@example.com` (documented password) sees real client data.
+    Change the sample password or remove its lead access, before hosting at the latest.
+  - **Rotate** the Helix and Compass keys (pasted in chat).
   - **Promote the real post-sales lead** (open question 9).
   - **Check the first GitHub Actions run** of "Checks" on the repo's Actions tab.
   - **For live sending (open question 10):** on the Azure app, add the redirect URI
@@ -467,8 +561,8 @@ from here.)
     change.
   - Decide on the live view leak.
 
-**Local servers:** Post-Sales Outreach was left running on `:3001` on 2026-09-13 for the
-user's review. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode).
+**Local servers:** Post-Sales Outreach was started on `:3001` on 2026-09-17 for the user's
+review. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode).
 Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
@@ -488,7 +582,8 @@ npm run db:push          # apply supabase/migrations/ to the hosted project
 npm run db:seed-users    # create the 4 auth users (service-role key)
 npm run db:seed          # apply supabase/seed.sql (needs psql + SUPABASE_DB_URL)
 npm run db:verify-rls    # THE check that proves the ownership model and write guards
-npm run jobs             # send job every 30 s, tracking job every 3 min, via /api/jobs (dev server up)
+npm run jobs             # send every 30 s, tracking every 3 min, Cortex sync hourly, via /api/jobs (dev server up)
+npm run sync             # one Cortex sync (Helix + Compass) through /api/jobs/sync
 python3 scripts/check-sql.py   # parse all SQL (needs pglast; CI runs it too)
 ```
 
@@ -623,6 +718,22 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
 20. **Reports return the caller's own numbers unless they're the lead.** Each report
     function is SECURITY INVOKER with an `app.is_admin() or … = auth.uid()` filter, in
     Postgres, not in React.
+21. **The Cortex sync mirrors; it never overrides app-side safety.**
+    - Only `src/lib/jobs/sync.ts` writes `account_source`, `account_context` and
+      `account_engagement`; signed-in users (the lead included) can only read them, per
+      account.
+    - It never touches an opt-out, never deletes a contact, and only overwrites name and title
+      on contacts it created (`source = internal_sync`).
+    - Owners who haven't signed in live in `account_pending_owner` (sync-written, read per
+      account) until `app.claim_pending_owners` converts them at first sign-in. Never pre-create
+      auth users for owners.
+    - It retires only owners it added (`account_assignment.source_system` not null). Owners the
+      lead added have a null source and stay. A lead who removes a synced owner will see them
+      come back until Compass or Helix changes.
+    - Mappings live in `app_policy.cortex_sync` (invariant 5). Nothing from Compass's CS notes,
+      health, risks or sentiment goes into the drafting brief.
+    - Test scripts must never reach synced accounts: `verify-rls` scopes broadcasts to sample
+      product keys and only runs them in `dry_run`.
 
 ## Layout
 
@@ -642,6 +753,10 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                                        job_run, extended email guard
                         20260913000200 broadcast: campaign content/audience, preview, launch, cancel
                         20260913000300 reporting: report_people/_material/_campaigns, enrichment_rules
+                        20260917000100 Cortex sync: account_source/_context/_engagement, owner
+                                       source, contact stakeholder fields, cortex_sync policy
+                        20260917000200 pending owners: account_pending_owner, claim at first
+                                       sign-in, all Helix/Compass owner sources
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
 scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs · run-jobs.mjs ·
@@ -658,7 +773,9 @@ src/lib/targeting.ts    My targets buckets: win back · going quiet · renewal �
 src/lib/providers/      index.ts (SendProvider, EnrichmentProvider) · send.ts (microsoft_graph,
                         dry_run) · apollo.ts
 src/lib/microsoft/      oauth.ts (mailbox consent, token refresh) · graph.ts (send, inbox, bounces)
-src/lib/jobs/           send.ts · track.ts · mailbox.ts (access tokens) — service role, via /api/jobs
+src/lib/jobs/           send.ts · track.ts · sync.ts (Cortex) · mailbox.ts (access tokens) — service
+                        role, via /api/jobs
+src/lib/cortex/         helix.ts · compass.ts — server-only API clients, used only by the sync job
 src/lib/crypto.ts       token encryption, constant-time compare
 src/lib/supabase/service.ts  service-role client, created only by the job route
 src/app/(app)/          dashboard · accounts/[id] two-pane (+ accounts/actions.ts opt-outs,
@@ -795,8 +912,9 @@ a mockup affordance, not a pattern to copy into the app.
 
 **Blocking the integrations track, and therefore real data:**
 
-1. **Cortex access (Helix and Compass).** There is still no way to get real accounts in:
-   by design the app has no screens to create accounts or contacts.
+1. **Cortex access (Helix and Compass). Answered 2026-09-17:** keys supplied and the sync is
+   built (entry 29). Still open: a shared id between the two systems, and key rotation. The
+   notes below are the history.
    - **Confirmed 2026-09-10 by Krish (Cortex team):** Cortex is the umbrella. Its
      subtools each have their own endpoint, bound through the Cortex SDK.
      - **Helix** holds accounts and their status, so it is the source for `account` rows

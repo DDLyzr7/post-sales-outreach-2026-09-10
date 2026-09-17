@@ -132,6 +132,74 @@ export type Contact = {
   opt_out_reason: string | null;
   source: ContactSource;
   enrichment_confidence: number | null;
+  /** From Compass: exec_sponsor, champion, technical_buyer, end_user. */
+  stakeholder_role: string | null;
+  influence_level: string | null;
+  sentiment: string | null;
+  last_interaction_at: string | null;
+};
+
+/** A dated item on a Compass account plan. */
+export type PlanItem = {
+  title: string;
+  description: string | null;
+  status: string | null;
+  owner: string | null;
+  due_date: string | null;
+};
+
+/** Compass's customer-success picture of an account (public.account_context). */
+export type AccountContext = {
+  health_score: number | null;
+  health_label: string | null;
+  health_narrative: string | null;
+  renewal_posture: string | null;
+  motion: string | null;
+  is_plg: boolean | null;
+  lifecycle_stages: string[];
+  project_stage: string | null;
+  agents_deployed: number | null;
+  live_use_cases: number | null;
+  client_brief: string | null;
+  current_state: string | null;
+  expansion_opportunity: string | null;
+  recommended_strategy: string | null;
+  delivery_concern: string | null;
+  commercial_concern: string | null;
+  cs_notes: string | null;
+  upsell_notes: string | null;
+  top_risks: PlanItem[];
+  open_decisions: PlanItem[];
+  next_actions: PlanItem[];
+  recent_updates: { summary: string; sentiment: string | null; event_at: string | null }[];
+  source_updated_at: string | null;
+  synced_at: string;
+};
+
+/** An owner named in Helix or Compass who hasn't signed in yet (public.account_pending_owner). */
+export type PendingOwner = {
+  account_id: string;
+  email: string;
+  full_name: string | null;
+  role: AssignmentRole;
+  is_primary: boolean;
+};
+
+/** A Helix project or a Compass use case (public.account_engagement). */
+export type AccountEngagement = {
+  id: string;
+  source_system: DataSourceSystem;
+  kind: "project" | "use_case";
+  name: string;
+  description: string | null;
+  status: string | null;
+  stage: string | null;
+  health: string | null;
+  owner_name: string | null;
+  blocker: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  source_updated_at: string | null;
 };
 
 export type SuggestedCollateral = {

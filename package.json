@@ -12,7 +12,8 @@
     "db:seed-users": "node --env-file=.env.local scripts/seed-users.mjs",
     "db:seed": "node --env-file=.env.local scripts/apply-sql.mjs supabase/seed.sql",
     "db:verify-rls": "node --env-file=.env.local scripts/verify-rls.mjs",
-    "jobs": "node --env-file=.env.local scripts/run-jobs.mjs"
+    "jobs": "node --env-file=.env.local scripts/run-jobs.mjs",
+    "sync": "node --env-file=.env.local scripts/run-jobs.mjs --once --only sync"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

@@ -15,7 +15,7 @@ import type {
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const CONTACT_FIELDS =
-  "id, account_id, type, full_name, title, business_function, email, phone, relationship_status, is_opted_out, opt_out_reason, source, enrichment_confidence";
+  "id, account_id, type, full_name, title, business_function, email, phone, relationship_status, is_opted_out, opt_out_reason, source, enrichment_confidence, stakeholder_role, influence_level, sentiment, last_interaction_at";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -45,6 +45,8 @@ export type DraftingSubject = {
   template: TemplateChoice | null;
   pastEmails: PastEmail[];
   collateral: CollateralHit[];
+  /** Current Helix projects and Compass use cases: names and stages only. */
+  engagements: { kind: "project" | "use_case"; name: string; stage: string | null }[];
 };
 
 export async function getDraftingSubject(
@@ -55,7 +57,7 @@ export async function getDraftingSubject(
   if (!UUID.test(accountId) || !UUID.test(contactId)) return null;
   const supabase = await createClient();
 
-  const [contactRes, accountRes, productRes, accountProductRes, engagedRes, introRes, pastRes] =
+  const [contactRes, accountRes, productRes, accountProductRes, engagedRes, introRes, pastRes, engagementRes] =
     await Promise.all([
       supabase
         .from("contact")
@@ -94,6 +96,13 @@ export async function getDraftingSubject(
         .is("deleted_at", null)
         .order("sent_at", { ascending: false })
         .limit(6),
+      supabase
+        .from("account_engagement")
+        .select("kind, name, stage, status")
+        .eq("account_id", accountId)
+        .in("status", ["active", "in_progress"])
+        .order("source_updated_at", { ascending: false, nullsFirst: false })
+        .limit(8),
     ]);
 
   const contact = contactRes.data as Contact | null;
@@ -156,6 +165,8 @@ export async function getDraftingSubject(
       sender_name: row.sender?.full_name ?? null,
     })),
     collateral,
+    engagements: ((engagementRes.data ?? []) as { kind: "project" | "use_case"; name: string; stage: string | null; status: string | null }[])
+      .map(({ kind, name, stage, status }) => ({ kind, name, stage: stage ?? status })),
   };
 }
 
