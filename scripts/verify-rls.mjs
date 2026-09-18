@@ -557,7 +557,13 @@ for (const expected of EXPECTED) {
   const riya = await signIn("pm@example.com");
   const lead = await signIn("lead@example.com");
 
-  const { data: syncedAccounts } = await lead.client.from("account_source").select("account_id").limit(1);
+  // The sample lead can't see real accounts any more (20260918000200), so find one
+  // with the service key when it's available.
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const service = serviceKey ? createClient(url, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } }) : null;
+  const { data: syncedAccounts } = service
+    ? await service.from("account_source").select("account_id").limit(1)
+    : { data: [] };
   const realAccount = syncedAccounts?.[0]?.account_id ?? null;
 
   for (const table of ["account_source", "account_context", "account_engagement", "account_pending_owner"]) {
@@ -568,13 +574,15 @@ for (const expected of EXPECTED) {
 
   if (realAccount) {
     const { data: leadRows } = await lead.client.from("account_engagement").select("id").eq("account_id", realAccount).limit(1);
-    check("the lead reads synced engagements", Array.isArray(leadRows), `${leadRows?.length ?? 0} row(s) on one account`);
+    const { data: leadAccount } = await lead.client.from("account").select("id").eq("id", realAccount).maybeSingle();
+    check("the sample lead can't read a real account or its engagements", !leadAccount && (leadRows ?? []).length === 0,
+      `${leadAccount ? "account visible" : "account hidden"}, ${leadRows?.length ?? 0} engagement row(s)`);
 
     const { data: riyaContacts } = await riya.client.from("contact").select("id").eq("account_id", realAccount);
     check("an owner can't read contacts on a synced account they don't own", (riyaContacts ?? []).length === 0,
       `${riyaContacts?.length ?? 0} row(s)`);
   } else {
-    console.log("  SKIP  no synced accounts yet (run npm run sync)");
+    console.log("  SKIP  no synced accounts found (run npm run sync; needs SUPABASE_SERVICE_ROLE_KEY)");
   }
 
   const { error: ctxInsert } = await lead.client.from("account_context").insert({ account_id: NORTHWIND, client_brief: "forged" });
@@ -691,6 +699,51 @@ for (const expected of EXPECTED) {
   check("Skott test rows cleaned up", left === 0, `${left ?? "?"} left`);
 
   for (const s of [riya, lead]) await s.client.auth.signOut();
+}
+
+// Two worlds (20260918000200): a real user never sees the sample accounts or the
+// fictional colleagues. A throwaway real user is created with the service key,
+// checked, and deleted.
+if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.log("\nReal and sample worlds");
+  const service = createClient(url, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { autoRefreshToken: false, persistSession: false } });
+  const email = "verify-rls-real-user@lyzr.ai";
+  const pwd = `Tmp-${Math.random().toString(36).slice(2)}-${Date.now()}`;
+  const { data: listed } = await service.auth.admin.listUsers({ perPage: 1000 });
+  const stale = listed?.users.find((u) => u.email === email);
+  if (stale) await service.auth.admin.deleteUser(stale.id);
+
+  const { data: made, error: makeError } = await service.auth.admin.createUser({
+    email, password: pwd, email_confirm: true, user_metadata: { full_name: "verify-rls real user" }, app_metadata: { is_admin: true },
+  });
+  if (makeError) {
+    check("real test user created", false, makeError.message);
+  } else {
+    // Supabase writes app_metadata after the insert, so the profile trigger never
+    // sees is_admin on an admin-created user; promote the profile directly.
+    await service.from("app_user").update({ is_admin: true }).eq("id", made.user.id);
+    const real = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    await real.auth.signInWithPassword({ email, password: pwd });
+    const { data: accounts } = await real.from("account").select("id");
+    const sampleSeen = (accounts ?? []).filter((a) => a.id.startsWith(SAMPLE_ACCOUNT)).length;
+    check("a real lead sees the real accounts and no sample ones", sampleSeen === 0 && (accounts ?? []).length > 0,
+      `${sampleSeen} sample, ${(accounts ?? []).length} total`);
+    const { data: northwind } = await real.from("contact").select("id").eq("account_id", NORTHWIND);
+    check("a real lead can't read sample contacts", (northwind ?? []).length === 0, `${northwind?.length ?? 0} row(s)`);
+    const { data: colleagues } = await real.from("app_user").select("email");
+    const fictional = (colleagues ?? []).filter((u) => u.email.endsWith("@example.com")).length;
+    check("a real user doesn't see the fictional colleagues", fictional === 0, `${fictional} @example.com`);
+    const { data: preview, error: previewError } = await real.rpc("preview_campaign_audience", { p_audience: {} });
+    const sampleRecipients = (preview ?? []).filter((r) => r.account_id.startsWith(SAMPLE_ACCOUNT)).length;
+    check("a real lead's broadcast audience has no sample accounts", !previewError && sampleRecipients === 0,
+      previewError?.message ?? `${sampleRecipients} sample of ${(preview ?? []).length}`);
+    await real.auth.signOut();
+    await service.auth.admin.deleteUser(made.user.id);
+    const { data: gone } = await service.from("app_user").select("id").eq("email", email);
+    check("real test user cleaned up", (gone ?? []).length === 0, `${gone?.length ?? 0} left`);
+  }
+} else {
+  console.log("\n  SKIP  real/sample world checks (SUPABASE_SERVICE_ROLE_KEY not set)");
 }
 
 // The anon key with no session must see nothing at all.

@@ -36,7 +36,15 @@ function Feedback({ state }: { state: DraftActionState }) {
 }
 
 /** "Draft with Claude" on a contact row, with an optional note for Claude. */
-export function StartDraftForm({ accountId, contactId }: { accountId: string; contactId: string }) {
+export function StartDraftForm({
+  accountId,
+  contactId,
+  label = "Draft with Claude",
+}: {
+  accountId: string;
+  contactId: string;
+  label?: string;
+}) {
   const [state, formAction, pending] = useActionState(startDraft, initial);
 
   return (
@@ -44,7 +52,7 @@ export function StartDraftForm({ accountId, contactId }: { accountId: string; co
       <input type="hidden" name="account_id" value={accountId} />
       <input type="hidden" name="contact_id" value={contactId} />
       <button type="submit" disabled={pending} className={PRIMARY}>
-        {pending ? "Drafting..." : "Draft with Claude"}
+        {pending ? "Drafting..." : label}
       </button>
       <details className="text-right">
         <summary className="cursor-pointer text-[11px] text-muted hover:text-accent">

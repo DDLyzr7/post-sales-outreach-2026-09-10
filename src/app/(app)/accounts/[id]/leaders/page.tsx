@@ -1,17 +1,29 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AddLeadersForm, type CandidateView } from "@/components/leader-forms";
+import { PeopleResults, type CandidateView } from "@/components/leader-forms";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { peopleSearchFallback, planPeopleSearch, SENIORITY_LABEL, type PeopleSearchPlan } from "@/lib/ai/people-search";
 import { UUID } from "@/lib/db/drafts";
 import { getAccountDetail, getCurrentUser } from "@/lib/db/queries";
 import { FUNCTION_LABEL } from "@/lib/format";
 import { loadPolicies } from "@/lib/policy";
-import { apolloConfigured, apolloProvider, bareDomain, PAGE_SIZE } from "@/lib/providers/apollo";
+import {
+  apolloConfigured, apolloProvider, bareDomain, functionFromTitle, PAGE_SIZE, peopleAtDomain,
+} from "@/lib/providers/apollo";
 import { createClient } from "@/lib/supabase/server";
 import type { BusinessFunction } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * A request that reads as a job title ("Analyst", "Head of Procurement") is searched
+ * as typed, with similar titles and no level filter. Anything more descriptive
+ * ("HR leaders, director and up") goes through Claude.
+ */
+function isPlainTitle(request: string): boolean {
+  const words = request.split(/\s+/).filter(Boolean);
+  return words.length <= 5 && !/[,;]/.test(request) && !/\b(and|or|in|at|who|people|team|teams|leaders|up|above|anyone)\b/i.test(request);
+}
 
 const FUNCTIONS: BusinessFunction[] = ["hr", "marketing", "finance", "sales", "operations", "it", "legal", "product", "executive"];
 
@@ -61,26 +73,34 @@ export default async function LeadersPage({
   const ready = allowed && apolloConfigured() && !!overview.domain;
 
   let plan: PeopleSearchPlan | null = null;
-  let planByClaude = false;
+  let planBy: "title" | "claude" | "fallback" = "title";
   if (request && ready) {
-    const read = await planPeopleSearch(request, overview.name);
-    planByClaude = !!read;
-    plan = read ?? peopleSearchFallback(request, policies.enrichment.titles_by_function, policies.enrichment.seniorities);
+    if (isPlainTitle(request)) {
+      const fn = functionFromTitle(request, "other");
+      plan = { titles: [request], seniorities: [], functions: fn === "other" ? [] : [fn], keywords: null };
+    } else {
+      const read = await planPeopleSearch(request, overview.name);
+      planBy = read ? "claude" : "fallback";
+      plan = read ?? peopleSearchFallback(request, policies.enrichment.titles_by_function, policies.enrichment.seniorities);
+    }
   }
   const functions = plan ? plan.functions : query.search ? requested : suggested;
 
   let candidates: CandidateView[] = [];
   let searchError: string | null = null;
+  let unknownCompany = false;
   if (searching && ready && overview.domain && (plan ? plan.titles.length > 0 : functions.length > 0)) {
     try {
       const existing = new Set([...committee, ...engaged].map((c) => c.full_name.toLowerCase()));
       const { data: known } = await supabase
         .from("contact")
-        .select("external_id")
+        .select("id, external_id, email")
         .eq("account_id", id)
         .eq("enrichment_provider", "apollo")
         .is("deleted_at", null);
-      const knownIds = new Set(((known ?? []) as { external_id: string | null }[]).map((k) => k.external_id));
+      const byExternal = new Map(
+        ((known ?? []) as { id: string; external_id: string | null; email: string | null }[]).map((k) => [k.external_id, k]),
+      );
       const found = await apolloProvider.search({
         accountId: id,
         companyName: overview.name,
@@ -92,10 +112,17 @@ export default async function LeadersPage({
         keywords: plan?.keywords,
         page,
       });
-      candidates = found.map((c) => ({
-        ...c,
-        alreadyAdded: knownIds.has(c.externalId) || existing.has(c.displayName.toLowerCase()),
-      }));
+      candidates = found.map((c) => {
+        const contact = byExternal.get(c.externalId);
+        return {
+          ...c,
+          alreadyAdded: !!contact || existing.has(c.displayName.toLowerCase()),
+          contactId: contact?.id ?? null,
+          email: contact?.email ?? null,
+        };
+      });
+      // Nobody on the first page: say whether Apollo knows the company at all.
+      if (!candidates.length && page === 1) unknownCompany = (await peopleAtDomain(overview.domain)) === 0;
     } catch (error) {
       searchError = error instanceof Error ? error.message : "Apollo search failed.";
     }
@@ -150,14 +177,21 @@ export default async function LeadersPage({
                 </button>
               </div>
               <p className="text-[11px] text-muted">
-                Name teams, titles or levels: &ldquo;the procurement team&rdquo;, &ldquo;CFO or finance
-                directors&rdquo;, &ldquo;managers in customer support&rdquo;.
+                A title (&ldquo;Analyst&rdquo;) is searched as typed. Or describe teams and levels:
+                &ldquo;the procurement team&rdquo;, &ldquo;CFO or finance directors&rdquo;, &ldquo;managers in
+                customer support&rdquo;.
               </p>
             </form>
 
             {plan ? (
               <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                <span>{planByClaude ? "Read as:" : "Claude wasn't available; searching:"}</span>
+                <span>
+                  {planBy === "title"
+                    ? "Searching the title, and similar titles:"
+                    : planBy === "claude"
+                      ? "Read as:"
+                      : "Claude wasn't available; searching:"}
+                </span>
                 {plan.titles.map((t) => <Badge key={`t-${t}`}>{t}</Badge>)}
                 {plan.seniorities.map((s) => <Badge key={`s-${s}`} tone="accent">{SENIORITY_LABEL[s]}</Badge>)}
                 {plan.functions.map((f) => <Badge key={`f-${f}`} tone="cold">{FUNCTION_LABEL[f]}</Badge>)}
@@ -193,7 +227,7 @@ export default async function LeadersPage({
                 <EmptyState>Choose at least one function, or describe who you&apos;re looking for.</EmptyState>
               ) : candidates.length ? (
                 <>
-                  <AddLeadersForm accountId={id} candidates={candidates} maxReveals={policies.enrichment.max_reveals_per_request} />
+                  <PeopleResults accountId={id} candidates={candidates} />
                   <nav className="mt-3 flex items-center gap-3 text-xs" aria-label="Result pages">
                     {page > 1 ? <Link href={pageHref(page - 1)} className="text-accent hover:underline">&larr; Previous</Link> : null}
                     <span className="text-muted">Page {page}</span>
@@ -202,7 +236,11 @@ export default async function LeadersPage({
                 </>
               ) : (
                 <EmptyState>
-                  {page > 1 ? "No more people for this search." : `Apollo found nobody matching that at ${bareDomain(overview.domain)}. Try broader titles or fewer levels.`}
+                  {page > 1
+                    ? "No more people for this search."
+                    : unknownCompany
+                      ? `Apollo has nobody at ${bareDomain(overview.domain)}. The domain may be wrong, or this is one of the fictional sample accounts.`
+                      : `Apollo found nobody matching that at ${bareDomain(overview.domain)}. Try broader titles or fewer levels.`}
                 </EmptyState>
               )}
             </Card>

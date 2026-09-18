@@ -472,3 +472,7 @@ insert into public.email_activity
  'ana.duarte@meridiantravel.co', 'riya.kapoor@example.com', 'google_workspace',
  now() - interval '150 days', null, null)
 on conflict (id) do nothing;
+
+-- The fictional accounts are the sample world (migration 20260918000200): only the
+-- @example.com users see them, and they see nothing else.
+update public.account set is_sample = true where id::text like '11111111-0000-4000-8000-%';

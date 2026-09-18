@@ -7,23 +7,23 @@ import { apolloConfigured, apolloProvider } from "@/lib/providers/apollo";
 import { createClient } from "@/lib/supabase/server";
 
 /**
- * Adds the leaders the owner picked. Each reveal costs Apollo credits, so the
- * request is capped by app_policy.enrichment_rules.max_reveals_per_request and who
- * may run it follows who_can_enrich. The contact insert itself goes through RLS
- * (contact_insert: only people who can see the account).
+ * "Find email" on one person from an Apollo search. Revealing costs Apollo credits,
+ * so it's one person per click, and who may run it follows
+ * app_policy.enrichment_rules.who_can_enrich. A person with an email joins the
+ * leadership committee as a cold contact, so they can be emailed straight away.
+ * The contact insert goes through RLS (only people who can see the account).
  */
 
-export type LeadersState = { error: string | null; notice: string | null };
+export type RevealResult =
+  | { ok: true; contactId: string; fullName: string; title: string | null; email: string }
+  | { ok: false; error: string };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const APOLLO_ID = /^[0-9a-f]{24}$/i;
 
-export async function addLeaders(_prev: LeadersState, formData: FormData): Promise<LeadersState> {
-  const accountId = String(formData.get("account_id") ?? "");
-  const ids = [...new Set(formData.getAll("person_id").map(String).filter((id) => APOLLO_ID.test(id)))];
-  if (!UUID.test(accountId)) return { error: "That account could not be found.", notice: null };
-  if (!ids.length) return { error: "Tick the people to add.", notice: null };
-  if (!apolloConfigured()) return { error: "APOLLO_API_KEY isn't set on this server.", notice: null };
+export async function revealPerson(accountId: string, personId: string): Promise<RevealResult> {
+  if (!UUID.test(accountId) || !APOLLO_ID.test(personId)) return { ok: false, error: "That person could not be found." };
+  if (!apolloConfigured()) return { ok: false, error: "APOLLO_API_KEY isn't set on this server." };
 
   const supabase = await createClient();
   const [user, policies, { data: account }] = await Promise.all([
@@ -31,29 +31,36 @@ export async function addLeaders(_prev: LeadersState, formData: FormData): Promi
     loadPolicies(supabase),
     supabase.from("account").select("id").eq("id", accountId).maybeSingle(),
   ]);
-  if (!user || !account) return { error: "That account could not be found.", notice: null };
+  if (!user || !account) return { ok: false, error: "That account could not be found." };
   if (policies.enrichment.who_can_enrich === "lead_only" && !user.is_admin) {
-    return { error: "Only the post-sales lead can look up leaders.", notice: null };
+    return { ok: false, error: "Only the post-sales lead can look people up." };
   }
-  const max = policies.enrichment.max_reveals_per_request;
-  if (ids.length > max) return { error: `Pick at most ${max} people at a time. Each one uses Apollo credits.`, notice: null };
 
-  let added = 0;
-  const skipped: string[] = [];
-  for (const id of ids) {
-    let person;
-    try {
-      person = await apolloProvider.reveal(id);
-    } catch (error) {
-      return {
-        error: `${added ? `Added ${added}, then ` : ""}${error instanceof Error ? error.message : "Apollo failed."}`,
-        notice: null,
-      };
-    }
-    if (!person) { skipped.push("one person Apollo couldn't match"); continue; }
-    if (!person.email) { skipped.push(`${person.fullName} (no email)`); continue; }
+  // Already revealed on this account: no second charge.
+  const { data: existing } = await supabase
+    .from("contact")
+    .select("id, full_name, title, email")
+    .eq("account_id", accountId)
+    .eq("enrichment_provider", "apollo")
+    .eq("external_id", personId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (existing?.email) {
+    return { ok: true, contactId: existing.id, fullName: existing.full_name, title: existing.title, email: existing.email };
+  }
 
-    const { error } = await supabase.from("contact").insert({
+  let person;
+  try {
+    person = await apolloProvider.reveal(personId);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Apollo failed." };
+  }
+  if (!person) return { ok: false, error: "Apollo couldn't match this person." };
+  if (!person.email) return { ok: false, error: `Apollo has no work email for ${person.fullName}.` };
+
+  const { data: inserted, error } = await supabase
+    .from("contact")
+    .insert({
       account_id: accountId,
       type: "committee",
       full_name: person.fullName,
@@ -67,16 +74,24 @@ export async function addLeaders(_prev: LeadersState, formData: FormData): Promi
       enrichment_provider: "apollo",
       enrichment_confidence: person.confidence,
       enriched_at: new Date().toISOString(),
-    });
-    if (error?.code === "23505") { skipped.push(`${person.fullName} (already on the account)`); continue; }
-    if (error) return { error: `Added ${added}, then: ${error.message}`, notice: null };
-    added += 1;
+    })
+    .select("id")
+    .single();
+
+  if (error?.code === "23505") {
+    // Someone with that email is already on the account.
+    const { data: same } = await supabase
+      .from("contact")
+      .select("id")
+      .eq("account_id", accountId)
+      .ilike("email", person.email)
+      .is("deleted_at", null)
+      .maybeSingle();
+    if (same) return { ok: true, contactId: same.id, fullName: person.fullName, title: person.title, email: person.email };
+    return { ok: false, error: `${person.fullName} is already on this account.` };
   }
+  if (error || !inserted) return { ok: false, error: error?.message ?? "Couldn't save the contact." };
 
   revalidatePath(`/accounts/${accountId}`);
-  revalidatePath(`/accounts/${accountId}/leaders`);
-  return {
-    error: null,
-    notice: `Added ${added} to the leadership committee.${skipped.length ? ` Skipped: ${skipped.join(", ")}.` : ""}`,
-  };
+  return { ok: true, contactId: inserted.id, fullName: person.fullName, title: person.title, email: person.email };
 }

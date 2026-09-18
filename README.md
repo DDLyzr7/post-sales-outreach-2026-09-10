@@ -143,6 +143,15 @@ Lead only, enforced in Postgres.
 Owners see their own numbers; the lead sees the team. Every function runs as the caller,
 so RLS still applies.
 
+## Real users and the sample data
+
+The 8 fictional accounts and the 4 `@example.com` users are a separate sample world: real
+users never see them, and the sample users never see real clients (migration
+`20260918000200_sample_world.sql`). Real owners come from the Cortex sync;
+`npm run db:real-users -- --lead <email>` creates a sign-in for each one (and the lead) and
+writes the passwords to `~/Desktop/Post-Sales-Logins.csv`. Password sign-in works on
+localhost only; Microsoft sign-in replaces it once its settings are in.
+
 ## Leadership enrichment (Apollo)
 
 **Find people** on an account's leadership pane takes a plain-language request ("HR and

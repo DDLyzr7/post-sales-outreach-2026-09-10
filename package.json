@@ -12,6 +12,7 @@
     "db:seed-users": "node --env-file=.env.local scripts/seed-users.mjs",
     "db:seed": "node --env-file=.env.local scripts/apply-sql.mjs supabase/seed.sql",
     "db:verify-rls": "node --env-file=.env.local scripts/verify-rls.mjs",
+    "db:real-users": "node --env-file=.env.local scripts/create-real-users.mjs",
     "jobs": "node --env-file=.env.local scripts/run-jobs.mjs",
     "sync": "node --env-file=.env.local scripts/run-jobs.mjs --once --only sync",
     "skott": "node --env-file=.env.local scripts/run-jobs.mjs --once --only skott"

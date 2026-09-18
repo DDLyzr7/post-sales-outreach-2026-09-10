@@ -79,6 +79,15 @@ type MatchPerson = {
 
 const CONFIDENCE: Record<string, number> = { verified: 0.95, likely_to_engage: 0.8, extrapolated: 0.6, unverified: 0.5 };
 
+/** How many people Apollo has at a domain at all. 0 means it doesn't know the company. */
+export async function peopleAtDomain(domain: string): Promise<number> {
+  const params = new URLSearchParams();
+  params.append("q_organization_domains_list[]", bareDomain(domain));
+  params.set("per_page", "1");
+  const result = await apollo<{ total_entries?: number; pagination?: { total_entries?: number } }>("/mixed_people/api_search", params);
+  return result.total_entries ?? result.pagination?.total_entries ?? 0;
+}
+
 export const apolloProvider: EnrichmentProvider = {
   name: "apollo",
 

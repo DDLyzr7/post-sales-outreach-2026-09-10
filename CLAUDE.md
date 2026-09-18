@@ -587,8 +587,49 @@ from here.)
       uses the same function for contacts it creates.
     - **Verified** as the lead on Accenture (real account): three requests read correctly in
       5–8 s, and "people running procurement" returned 25 procurement directors and VPs.
+    - **Row-by-row flow (user, 2026-09-18):** "when I input a title, all the people should be
+      visible… an option of find email… then send them an email". A request that reads as a
+      title (up to 5 words, no "and/in/team/leaders…") is searched as typed with similar
+      titles and no level filter; longer ones go through Claude. Each result has **Find
+      email** (`revealPerson`, one reveal per click, reuses an existing Apollo contact without
+      a second charge) and then **Email them** (`StartDraftForm`, a Claude draft to review and
+      send). An empty first page checks `peopleAtDomain()` and says when Apollo doesn't know the
+      company. The user's "Analyst" search found nothing because it ran on Meridian Travel
+      (fictional domain); on Accenture it returns 25 analysts in under 2 s.
       **Not run:** a reveal (costs Apollo credits). Types, lint and build pass. **Committed
       and pushed** at the user's request (2026-09-18).
+
+33. **Real users and owners, sample data walled off (user, 2026-09-18).** Asked to "put real
+    accounts and users… and real owners", the user chose: pre-create owners with passwords
+    (reversing the 17 Sep "never pre-create" call), make `deepankar.dimri@lyzr.com` the lead,
+    and keep the sample data but hide it from real users.
+    - **Migration `20260918000200_sample_world`,** pushed: `account.is_sample` (the 8 seed
+      accounts), `app.is_sample_user()` (an `@example.com` caller), `app.account_in_world()`,
+      and RESTRICTIVE policies on `account`, the 8 account-scoped tables and `app_user`.
+      `app.campaign_audience` is now a world filter over the renamed
+      `app.campaign_audience_all`. The sample lead no longer sees real clients (closes the
+      17 Sep risk).
+    - **`scripts/create-real-users.mjs`** (`npm run db:real-users -- --lead <email>`): one
+      user per `account_pending_owner` email, random 20-character passwords, written to
+      `~/Desktop/Post-Sales-Logins.csv` (mode 600, never printed, outside the repo). Existing
+      users are skipped unless `--reset`. Ran it: **19 users** (18 owners + the lead), **105
+      owner roles claimed, 0 waiting**.
+    - **Found:** Supabase's admin `createUser` writes `app_metadata` after the insert, so
+      `app.handle_new_auth_user` never sees `is_admin`, `default_role` or
+      `warm_sender_address` for admin-created users (the sample lead is admin only because
+      `seed.sql` sets it). The script promotes the lead on `app_user` directly. Invariant 12's
+      safety holds (users still can't grant themselves anything); only the convenience is lost.
+    - **Verified:** `db:verify-rls` passes, including 6 new world checks with a throwaway real
+      lead (created, checked, deleted). Signed in as Rijo (19 accounts), Zahid (15) and the lead
+      (59, Team coverage), none seeing sample data. The next sync kept every assignment.
+    - **Risk when Microsoft sign-in goes on:** these users have `email` identities. If
+      Supabase doesn't auto-link the Azure identity (Azure emails are often treated as
+      unverified), a first Microsoft sign-in tries to create a second user and fails on
+      `app_user`'s unique email. Test with one person first; fix by linking identities or by
+      deleting that user so the Microsoft sign-in recreates them (assignments are re-claimed
+      only if the sync has re-written their pending rows, so run a sync between).
+    - Password sign-in is still localhost-only (`passwordSignInEnabled()`), and the sign-up
+      hook's password rule still allows only example.com for *new* sign-ups.
 
 **Priority order the user follows, with status (2026-09-13):**
 
@@ -623,10 +664,9 @@ from here.)
   - **Owners (entry 30):** emails for the 13 unresolved Compass names (add them to
     `cortex_sync.people`); owners for JP Morgan Chase and Neuralgo (GoML); confirm Rijo as
     primary CSM on 19 accounts.
-  - **Sample lead exposure:** `lead@example.com` (documented password) sees real client data.
-    Change the sample password or remove its lead access, before hosting at the latest.
+  - **Real logins:** `~/Desktop/Post-Sales-Logins.csv` (19 people). Share each password only
+    with its owner, or keep them for your own review; they work on localhost only.
   - **Rotate** the Helix and Compass keys (pasted in chat).
-  - **Promote the real post-sales lead** (open question 9).
   - **Check the first GitHub Actions run** of "Checks" on the repo's Actions tab.
   - **For live sending (open question 10):** on the Azure app, add the redirect URI
     `http://localhost:3001/mailbox/callback`, the delegated `Mail.Send`, `Mail.ReadBasic`,
@@ -662,6 +702,7 @@ npm run db:push          # apply supabase/migrations/ to the hosted project
 npm run db:seed-users    # create the 4 auth users (service-role key)
 npm run db:seed          # apply supabase/seed.sql (needs psql + SUPABASE_DB_URL)
 npm run db:verify-rls    # THE check that proves the ownership model and write guards
+npm run db:real-users -- --lead deepankar.dimri@lyzr.com   # sign-ins for real owners; logins CSV on the Desktop
 npm run jobs             # send every 30 s, tracking every 3 min, Cortex sync hourly, Skott every 6 h, via /api/jobs (dev server up)
 npm run sync             # one Cortex sync (Helix + Compass) through /api/jobs/sync
 npm run skott            # one Skott feed (collateral library) through /api/jobs/skott
@@ -806,8 +847,9 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
     - It never touches an opt-out, never deletes a contact, and only overwrites name and title
       on contacts it created (`source = internal_sync`).
     - Owners who haven't signed in live in `account_pending_owner` (sync-written, read per
-      account) until `app.claim_pending_owners` converts them at first sign-in. Never pre-create
-      auth users for owners.
+      account) until `app.claim_pending_owners` converts them when their user is created. Since
+      2026-09-18 owners are pre-created with passwords by `db:real-users` (the user reversed
+      the earlier "never pre-create" call); see entry 33 for the Microsoft linking risk.
     - It retires only owners it added (`account_assignment.source_system` not null). Owners the
       lead added have a null source and stay. A lead who removes a synced owner will see them
       come back until Compass or Helix changes.
@@ -829,6 +871,16 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
       `{{link:<id>}}` for an id it was given.
     - The feed never deletes collateral (past emails point at it) and never retires items only
       a search found (`listed_at` null).
+
+23. **Two worlds: sample and real never mix for a signed-in user.**
+    - `@example.com` users see only `account.is_sample` accounts and each other; everyone else
+      sees only real accounts and real colleagues. RESTRICTIVE policies enforce it, so it
+      holds for the lead (admin) too. Jobs (service role) see both.
+    - Every new account-scoped table needs an `<table>_same_world` restrictive policy, and any
+      SECURITY DEFINER function that reads across accounts must filter with
+      `app.account_in_world()` (as `app.campaign_audience` does).
+    - Test scripts touch real data only through the service key, and only to find ids or to
+      create and delete throwaway users.
 
 ## Layout
 
@@ -855,9 +907,11 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                         20260918000100 Skott: collateral source columns, client_shareable from
                                        collateral_rules, record_skott_items, email collateral
                                        guard, search_collateral v2, skott job
+                        20260918000200 two worlds: account.is_sample, restrictive same-world
+                                       policies, campaign_audience world filter
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
-scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs · run-jobs.mjs ·
+scripts/                seed-users.mjs · create-real-users.mjs · apply-sql.mjs · verify-rls.mjs · run-jobs.mjs ·
                         report-pdf.mjs (status report to an A4 PDF, sections kept whole) ·
                         check-sql.py (pglast parse of migrations + seed, used by CI)
 .github/workflows/      checks.yml: typegen, types, lint, build, SQL parse
@@ -1090,7 +1144,8 @@ a mockup affordance, not a pattern to copy into the app.
    - **If Microsoft says admin approval is needed,** that comes from the reused app's
      pending tenant consent. Either get the consent granted, or register a separate
      sign-in-only app.
-9. **Who is the real post-sales lead?** Nobody is promoted automatically.
+9. **Who is the real post-sales lead? Answered 2026-09-18:** `deepankar.dimri@lyzr.com`
+   (entry 33).
 10. **Live sending settings** (the user, on the "Lyzr Comms Tracker" Azure app):
     - Add the Web redirect URI `http://localhost:3001/mailbox/callback`, and the hosted one
       later.
