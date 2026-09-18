@@ -20,9 +20,9 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-18 (Skott collateral)._
+_Last updated 2026-09-18 (Skott, Apollo Find people, real users and owners)._
 
-## Status — Phases 1–7 built (Skott included), Cortex sync, Apollo enrichment and Microsoft sign-in built; all awaiting review
+## Status — all features built except Vercel hosting (47 of 48); real users and owners in; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -41,7 +41,7 @@ global broadcast.
 | 5 — sending: owner's Microsoft 365 mailbox on both paths, cap and opt-outs enforced, delivery tracking | **done, unreviewed** (2026-09-13). In **test mode** (`app_policy.sending.mode = dry_run`); live sending waits on the Azure mailbox settings (open question 10) |
 | 6 — global broadcast to all accounts | **done, unreviewed** (2026-09-13). Broadcasts sit outside the cap |
 | 7 — reporting: outreach consistency, account coverage, relevant material, broadcast results | **done, unreviewed** (2026-09-13) |
-| Track — integrations: Cortex sync (Helix: clients, projects, contacts; Compass: lifecycle, CSM, health, use cases, contacts), leadership enrichment | Cortex sync **built and run against live data** (2026-09-17, 59 real accounts); Apollo enrichment **built** (needs `APOLLO_API_KEY`) |
+| Track — integrations: Cortex sync (Helix: clients, projects, contacts; Compass: lifecycle, CSM, health, use cases, contacts), leadership enrichment | Cortex sync **built and run against live data** (2026-09-17, 59 real accounts); Apollo **connected** 2026-09-18: plain-language Find people, Find email, Email them |
 | P1 — Lyzr sign-in with Microsoft | built and migration pushed; waiting on the user's Azure and Supabase dashboard settings (open question 8) |
 
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
@@ -60,7 +60,14 @@ from here.)
   link records it, deleting the link drops it, and a SharePoint link gets the pre-send warning.
   The test draft was cancelled. **Not verified:** the picker clicked in a browser (its server
   action was exercised through the form post), and a Claude draft on a real account.
-- **Committed and pushed** at the user's request (2026-09-18).
+- **Committed and pushed** at the user's request (2026-09-18): `b0de9e6` (Skott).
+- **Apollo Find people** (entry 32): searches verified as the lead on Accenture (a real
+  account): plain titles under 2 s, Claude-read requests 5–8 s; a fictional domain says Apollo
+  doesn't know the company. **Not run:** Find email (costs a credit) and Email them.
+  Committed `82446e0` and `33e2846`.
+- **Real users** (entry 33): `db:verify-rls` passes with 6 world checks; signed in as Rijo
+  (19 accounts), Zahid (15) and the lead (59); none sees sample data. Migration
+  `20260918000200` **pushed**. Committed `33e2846`.
 
 ### Verification state (2026-09-17)
 
@@ -587,6 +594,7 @@ from here.)
       uses the same function for contacts it creates.
     - **Verified** as the lead on Accenture (real account): three requests read correctly in
       5–8 s, and "people running procurement" returned 25 procurement directors and VPs.
+      Committed `82446e0`.
     - **Row-by-row flow (user, 2026-09-18):** "when I input a title, all the people should be
       visible… an option of find email… then send them an email". A request that reads as a
       title (up to 5 words, no "and/in/team/leaders…") is searched as typed with similar
@@ -630,6 +638,8 @@ from here.)
       only if the sync has re-written their pending rows, so run a sync between).
     - Password sign-in is still localhost-only (`passwordSignInEnabled()`), and the sign-up
       hook's password rule still allows only example.com for *new* sign-ups.
+    - Committed `33e2846` with entry 32's Find email / Email them flow. The local server was
+      then stopped at the user's request.
 
 **Priority order the user follows, with status (2026-09-13):**
 
@@ -642,9 +652,11 @@ from here.)
 | **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | **Built** 2026-09-13 in test mode. Live needs the Azure mailbox settings |
 | **P5** | Global broadcast | **Built** 2026-09-13 |
 | **P6** | Reporting | **Built** 2026-09-13 |
-| **P7** | Compass; enrichment; Comms Tracker's future | Apollo enrichment **built** (needs a key). Compass waits on Krish; Comms Tracker undecided |
+| **P7** | Compass; enrichment; Comms Tracker's future | Compass sync **built** 2026-09-17; Apollo **connected** 2026-09-18; Comms Tracker undecided |
 
-**Stopped for review after the Skott feed (2026-09-18).** Only GV-05 (hosting) is left to build.
+**Stopped for review after real users and owners (2026-09-18).** Only GV-05 (hosting) is left
+to build. The tool can't be used by the team yet: it runs on this Mac only, real people sign in
+with passwords on localhost, and sending is in test mode.
 - **Next when answers arrive:** owner emails for the unresolved Compass names (entry 30), and
   live sending once the Azure mailbox settings are in.
 - **Last:** Vercel hosting on the company account, with Vercel Cron calling `/api/jobs/send`,
@@ -654,8 +666,13 @@ from here.)
 - **Post-Sales Outreach:**
   - **Sign-in:** switch on the Before User Created hook now (email sign-ups stay open until
     it is on), and add the rest of the Microsoft sign-in settings (open question 8).
-  - **Review Phases 1–7** in the browser at http://localhost:3001: sign in as
-    `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with Claude.
+  - **Review in the browser** at http://localhost:3001 (start the server first). Real data:
+    sign in as `deepankar.dimri@lyzr.com` (the lead) with the password in
+    `~/Desktop/Post-Sales-Logins.csv`. Sample data: `pm@example.com` / `PostSales!2026`.
+    Untested by hand: Add collateral on a draft, Find email and Email them in Find people, and a
+    Claude draft on a real account.
+  - **Before switching Microsoft sign-in on:** the 19 password users may not link to their
+    Microsoft identity (entry 33). Try one person first.
   - **Answers to pass on:** Confirm the two unconfirmed account pairs (entry 29). Ask Krish
     whether Helix and Compass share an id. Ask Skott's owner to lift `list_kb`'s 100-item cap
     (entry 31).
@@ -672,7 +689,7 @@ from here.)
     `http://localhost:3001/mailbox/callback`, the delegated `Mail.Send`, `Mail.ReadBasic`,
     `User.Read` and `offline_access` permissions with admin consent, and a client secret in
     `MICROSOFT_CLIENT_SECRET`. Then the lead switches Settings → Sending to live.
-  - **Apollo:** rotate the key (pasted in chat), and try one reveal on a real account.
+  - **Apollo:** rotate the key (pasted in chat), and try one Find email on a real account.
   - **Review Phases 5–7:** run `npm run jobs` beside the dev server, send a ready email as
     Riya, and launch a broadcast as Dana. Everything is in test mode.
 - **Comms Tracker:**
@@ -681,8 +698,8 @@ from here.)
     change.
   - Decide on the live view leak.
 
-**Local servers:** Post-Sales Outreach was started on `:3001` on 2026-09-17 for the user's
-review. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode).
+**Local servers:** none running. Post-Sales Outreach was stopped at the user's request on
+2026-09-18. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode).
 Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
