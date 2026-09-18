@@ -225,7 +225,7 @@ export function ContactPane({
         <div className="flex shrink-0 items-baseline gap-3">
           {!engaged && enrichmentAvailable ? (
             <Link href={`/accounts/${accountId}/leaders`} className="text-[11px] font-medium text-accent hover:underline">
-              Find leaders
+              Find people
             </Link>
           ) : null}
           <span className="text-xs text-muted">{contacts.length}</span>

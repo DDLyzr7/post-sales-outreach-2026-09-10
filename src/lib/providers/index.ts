@@ -39,6 +39,12 @@ export type EnrichmentQuery = {
   functions: BusinessFunction[];
   titlesByFunction: Partial<Record<BusinessFunction, string[]>>;
   seniorities: string[];
+  /** Exact titles to search, from a plain-language request. Used instead of titlesByFunction. */
+  titles?: string[];
+  /** Topic words matched anywhere on the profile. */
+  keywords?: string | null;
+  /** 1-based results page. */
+  page?: number;
 };
 
 /** A search hit. No email yet: revealing one costs credits. */

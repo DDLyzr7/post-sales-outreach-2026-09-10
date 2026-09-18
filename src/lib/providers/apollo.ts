@@ -11,6 +11,9 @@ import type { BusinessFunction } from "@/lib/types";
 
 const APOLLO = "https://api.apollo.io/api/v1";
 
+/** People per search page. */
+export const PAGE_SIZE = 25;
+
 export function apolloConfigured(): boolean {
   return !!process.env.APOLLO_API_KEY;
 }
@@ -23,13 +26,19 @@ export function functionFromTitle(title: string | null, fallback: BusinessFuncti
     [/\b(cmo|marketing|brand|growth)\b/, "marketing"],
     [/\b(cfo|finance|financial|controller|treasur)/, "finance"],
     [/\b(cro|revenue|sales|commercial)\b/, "sales"],
-    [/\b(coo|operations|operating|supply chain|logistics)\b/, "operations"],
+    [/\b(coo|operations|operating|supply chain|logistics|procurement|sourcing|purchasing|customer (support|service|care|experience))\b/, "operations"],
     [/\b(cio|cto|ciso|information|technology|it|digital|security|engineering)\b/, "it"],
     [/\b(legal|counsel|compliance|risk)\b/, "legal"],
     [/\b(cpo|product)\b/, "product"],
-    [/\b(ceo|president|founder|managing director|chief executive)\b/, "executive"],
+    // "Vice President X" is a VP of X, not the president.
+    [/\b(ceo|(?<!vice[ -])president|founder|managing director|chief executive)\b/, "executive"],
   ];
   return rules.find(([pattern]) => pattern.test(t))?.[1] ?? fallback;
+}
+
+/** "https://www.accenture.com/us-en" -> "accenture.com". Helix stores most domains as URLs. */
+export function bareDomain(domain: string): string {
+  return domain.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/^www\./, "").split(/[/?#:]/)[0];
 }
 
 class ApolloError extends Error {}
@@ -75,12 +84,16 @@ export const apolloProvider: EnrichmentProvider = {
 
   async search(query: EnrichmentQuery): Promise<EnrichmentCandidate[]> {
     const params = new URLSearchParams();
-    params.append("q_organization_domains_list[]", query.companyDomain);
-    const titles = query.functions.flatMap((fn) => query.titlesByFunction[fn] ?? []);
+    params.append("q_organization_domains_list[]", bareDomain(query.companyDomain));
+    const titles = query.titles?.length
+      ? query.titles
+      : query.functions.flatMap((fn) => query.titlesByFunction[fn] ?? []);
     for (const title of titles) params.append("person_titles[]", title);
+    params.set("include_similar_titles", "true");
     for (const seniority of query.seniorities) params.append("person_seniorities[]", seniority);
-    params.set("per_page", "25");
-    params.set("page", "1");
+    if (query.keywords) params.set("q_keywords", query.keywords);
+    params.set("per_page", String(PAGE_SIZE));
+    params.set("page", String(Math.max(1, Math.min(query.page ?? 1, 20))));
 
     const result = await apollo<{ people?: SearchPerson[] }>("/mixed_people/api_search", params);
     const wanted = new Set(query.functions);

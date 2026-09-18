@@ -340,7 +340,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
         <li><a href="#reporting">Reporting <span class="n">5</span></a></li>
         <li><a href="#integrations">Data and integrations <span class="n">3</span></a></li>
         <li><a href="#governance">Governance <span class="n">5</span></a></li>
-        <li><a href="#decisions">Decisions and questions <span class="n">21</span></a></li>
+        <li><a href="#decisions">Decisions and questions <span class="n">20</span></a></li>
       </ol>
     </nav>
     <div class="legend">
@@ -596,7 +596,7 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
             <tbody>
               <tr data-status="built"><td class="id">IN-01</td><td class="what"><strong>Helix sync</strong><span>Clients, their projects and project contacts from Helix, one of the Cortex subtools. Accounts link to their Helix client, and project managers of current projects become co-owners.</span><em>Built 17 Sep. Runs hourly with the other jobs, or on demand with npm run sync.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
               <tr data-status="built"><td class="id">IN-02</td><td class="what"><strong>Compass sync</strong><span>Customer status, the CSM as primary owner, health, renewal and contract dates, use cases, stakeholders and the account plan. Compass accounts are paired with Helix clients by name, or by a pairing the lead sets.</span><em>Built 17 Sep. Shown on each account under "From Helix and Compass".</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
-              <tr data-status="built"><td class="id">IN-03</td><td class="what"><strong>Leadership enrichment</strong><span>Find CHRO, CMO and CFO contacts at an account with Apollo, pick who to add, and they join the leadership committee.</span><em>Searching is free; adding someone reveals their email and uses Apollo credits. Switches on with APOLLO_API_KEY.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
+              <tr data-status="built"><td class="id">IN-03</td><td class="what"><strong>Find people with Apollo</strong><span>Type the teams, titles or levels you want ("procurement leaders, director and up"), Claude turns it into Apollo titles and seniorities, and you pick who to add to the leadership committee.</span><em>Connected 18 Sep. Searching is free; adding someone reveals their email and uses Apollo credits.</em></td><td class="status"><span class="chip built">Built</span></td><td class="phase-col">Track</td><td class="asked">Brief</td></tr>
             </tbody>
           </table>
           <p class="empty-note">No features in this area match the filter.</p>
@@ -657,7 +657,6 @@ th.phase-col, th.asked, th.status { white-space: nowrap; }
             <li><span class="blocks">Sharpens CL-04</span><strong>Skott&apos;s listing stops at 100</strong><span>list_kb returns at most 100 blog posts and 100 lyzr.ai blueprints. Search fills the gaps; a full listing from Skott would be better.</span></li>
             <li><span class="blocks">Sharpens IN-01, IN-02</span><strong>A shared id for Helix and Compass</strong><span>The two systems share no id, so accounts are paired by name. A few pairs need confirming by hand.</span></li>
             <li><span class="blocks">Blocks live sending</span><strong>Azure mailbox settings</strong><span>A client secret, the redirect URI, and admin consent for Mail.Send and Mail.ReadBasic on the reused app registration. Until then sending runs in test mode.</span></li>
-            <li><span class="blocks">Blocks IN-03 going live</span><strong>Apollo API key</strong><span>Enrichment is built and waits for the key.</span></li>
             <li><span class="blocks">Open</span><strong>What happens to Comms Tracker</strong><span>It is live today. Retire it, merge it in, or keep both once this ships?</span></li>
           </ul>
         </div>

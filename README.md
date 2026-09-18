@@ -145,8 +145,10 @@ so RLS still applies.
 
 ## Leadership enrichment (Apollo)
 
-**Find leaders** on an account's leadership pane searches Apollo for functional leaders at
-the account's domain (free), and adds the people you tick as leadership contacts. Adding
+**Find people** on an account's leadership pane takes a plain-language request ("HR and
+talent leaders, director and up", "managers in customer support"). Claude turns it into
+Apollo titles and seniorities (`src/lib/ai/people-search.ts`), Apollo searches the account's
+domain (free), and the people you tick are added as leadership contacts. Adding
 someone reveals their email and uses Apollo credits, capped by
 `app_policy.enrichment_rules.max_reveals_per_request`. Code: `src/lib/providers/apollo.ts`,
 `src/app/(app)/accounts/[id]/leaders/`. It needs `APOLLO_API_KEY`.

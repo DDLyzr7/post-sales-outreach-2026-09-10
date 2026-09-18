@@ -571,6 +571,25 @@ from here.)
     - **Feature list:** CL-04, CL-05, CL-06 built; 47 built, 1 planned (GV-05), 0 waiting on
       input. Republished.
 
+32. **Plain-language people search with Apollo (IN-03).** The user supplied the Apollo key
+    (in `.env.local`, pasted in chat: **rotate it**) and asked that users type the teams and
+    kinds of titles they want.
+    - `/accounts/[id]/leaders` ("Find people", linked from the leadership pane) takes a
+      request. `src/lib/ai/people-search.ts` has Claude (effort low, 20 s) turn it into
+      Apollo titles (free text, up to 12), seniorities and functions (enums) and optional
+      keywords, shown as "Read as" chips. Without Claude, `peopleSearchFallback()` uses the
+      policy's titles. The function checkboxes stay under "Or pick functions".
+    - The Apollo search takes explicit titles, `include_similar_titles`, `q_keywords` and
+      pages of 25. Domains are stripped to the bare host (`bareDomain()`); Helix stores 48 of
+      56 as URLs.
+    - `functionFromTitle()` fixed: "Vice President X" is no longer executive; procurement,
+      sourcing, purchasing and customer support/service map to operations. The Cortex sync
+      uses the same function for contacts it creates.
+    - **Verified** as the lead on Accenture (real account): three requests read correctly in
+      5–8 s, and "people running procurement" returned 25 procurement directors and VPs.
+      **Not run:** a reveal (costs Apollo credits). Types, lint and build pass. **Committed
+      and pushed** at the user's request (2026-09-18).
+
 **Priority order the user follows, with status (2026-09-13):**
 
 | Stage | Scope | Status |
@@ -613,7 +632,7 @@ from here.)
     `http://localhost:3001/mailbox/callback`, the delegated `Mail.Send`, `Mail.ReadBasic`,
     `User.Read` and `offline_access` permissions with admin consent, and a client secret in
     `MICROSOFT_CLIENT_SECRET`. Then the lead switches Settings → Sending to live.
-  - **For enrichment:** an Apollo API key in `APOLLO_API_KEY`.
+  - **Apollo:** rotate the key (pasted in chat), and try one reveal on a real account.
   - **Review Phases 5–7:** run `npm run jobs` beside the dev server, send a ready email as
     Riya, and launch a broadcast as Dana. Everything is in test mode.
 - **Comms Tracker:**
@@ -1080,8 +1099,7 @@ a mockup affordance, not a pattern to copy into the app.
     - Put a client secret in `MICROSOFT_CLIENT_SECRET`.
     - Then switch Settings → Sending to live. Until then every send is recorded in test
       mode.
-11. **Apollo API key** for `APOLLO_API_KEY`. Enrichment is built and hidden behind a clear
-    message until it's set.
+11. **Apollo API key. Answered 2026-09-18** (entry 32). Rotate it.
 
 **Answered:** email content storage (full body plus template version pin). On 2026-09-10:
 build in Post-Sales Outreach, collateral as trackable links, send from the app, Skott via
