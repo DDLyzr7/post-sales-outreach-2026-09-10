@@ -95,6 +95,10 @@ export type CollateralHit = {
   /** "function:contact_type", e.g. "finance:committee". */
   personas: string[];
   score: number;
+  /** Can go in a client email (collateral_rules). */
+  client_shareable: boolean;
+  /** "skott", or null for the sample and lead-added collateral. */
+  source_system: string | null;
 };
 
 /** Collateral as a draft brief describes it. */

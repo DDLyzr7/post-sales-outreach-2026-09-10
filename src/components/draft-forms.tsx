@@ -1,9 +1,12 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState, useTransition } from "react";
 import {
-  discardDraft, redraft, sendEmail, startDraft, stopSending, updateDraft, type DraftActionState,
+  discardDraft, findCollateralForDraft, redraft, sendEmail, startDraft, stopSending, updateDraft,
+  type CollateralOption, type DraftActionState, type FindCollateralResult,
 } from "@/app/(app)/drafts/actions";
+import { collateralLine, insertBeforeSignOff } from "@/lib/collateral-links";
+import { COLLATERAL_TYPE_LABEL } from "@/lib/format";
 
 const initial: DraftActionState = { error: null, notice: null };
 
@@ -93,6 +96,25 @@ export function DraftEditor({
 }) {
   const [state, formAction, pending] = useActionState(updateDraft, initial);
   const [intent, setIntent] = useState<Intent>("save");
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
+  // Set once the owner puts the cursor in the body; until then links go before the sign-off.
+  const cursorPlaced = useRef(false);
+  const [addedIds, setAddedIds] = useState<string[]>([]);
+
+  const addCollateral = (item: CollateralOption) => {
+    const el = bodyRef.current;
+    if (!el || el.value.includes(item.url)) return;
+    const line = collateralLine({ title: item.title, asset_url: item.url });
+    if (cursorPlaced.current) {
+      const at = el.selectionStart ?? el.value.length;
+      const before = el.value.slice(0, at);
+      const after = el.value.slice(at);
+      el.value = `${before}${before && !before.endsWith("\n") ? "\n" : ""}${line}${after.startsWith("\n") ? "" : "\n"}${after}`;
+    } else {
+      el.value = insertBeforeSignOff(el.value, line);
+    }
+    setAddedIds((ids) => [...new Set([...ids, item.id])]);
+  };
 
   const submit = (value: Intent, label: string, className: string) => (
     <button
@@ -137,15 +159,22 @@ export function DraftEditor({
           Body
         </label>
         <textarea
+          ref={bodyRef}
           id="draft-body"
           name="body"
           defaultValue={body}
+          onSelect={() => {
+            cursorPlaced.current = true;
+          }}
           rows={16}
           maxLength={20000}
           disabled={ready}
           className={`mt-1 font-sans leading-relaxed ${FIELD}`}
         />
       </div>
+
+      <input type="hidden" name="added_collateral_ids" value={addedIds.join(",")} />
+      {ready ? null : <CollateralPicker draftId={draftId} onAdd={addCollateral} addedCount={addedIds.length} />}
 
       <div className="flex flex-wrap items-center gap-2">
         {ready ? (
@@ -163,6 +192,115 @@ export function DraftEditor({
       </div>
       <Feedback state={state} />
     </form>
+  );
+}
+
+/**
+ * "Add collateral": search the library (Skott first) for material a client can be
+ * sent, or see suggestions for this contact, and drop its link into the body.
+ * Lives inside the editor's form, so every control is type="button".
+ */
+function CollateralPicker({
+  draftId,
+  onAdd,
+  addedCount,
+}: {
+  draftId: string;
+  onAdd: (item: CollateralOption) => void;
+  addedCount: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [result, setResult] = useState<FindCollateralResult | null>(null);
+  const [added, setAdded] = useState<string[]>([]);
+  const [pending, startTransition] = useTransition();
+
+  const find = (request: string) =>
+    startTransition(async () => {
+      setResult(await findCollateralForDraft(draftId, request));
+    });
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className={BUTTON}
+        onClick={() => {
+          setOpen(true);
+          find("");
+        }}
+      >
+        Add collateral
+      </button>
+    );
+  }
+
+  return (
+    <div className="rounded-md border border-line bg-surface-muted p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="collateral-find" className="sr-only">Find collateral</label>
+        <input
+          id="collateral-find"
+          value={query}
+          maxLength={300}
+          onChange={(event) => setQuery(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter would submit the draft form.
+            if (event.key === "Enter") {
+              event.preventDefault();
+              find(query);
+            }
+          }}
+          placeholder="e.g. banking customer support case study"
+          className="min-w-[200px] flex-1 rounded-md border border-line-strong bg-surface px-2 py-1.5 text-xs outline-none focus:border-accent"
+        />
+        <button type="button" className={BUTTON} disabled={pending} onClick={() => find(query)}>
+          {pending ? "Searching..." : "Search"}
+        </button>
+        <button type="button" className="text-[11px] text-muted hover:text-accent" onClick={() => setOpen(false)}>
+          Close
+        </button>
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted">
+        Only material a client can be sent: public lyzr.ai case studies, blueprints, playbooks, templates and blog
+        posts. Adding one puts its link in the body{addedCount ? "; save to keep it" : ""}.
+      </p>
+
+      {pending && !result ? <p className="mt-2 text-xs text-muted">Finding material for this contact...</p> : null}
+      {result?.error ? <p role="alert" className="mt-2 text-xs text-bad">{result.error}</p> : null}
+      {result && !result.error ? (
+        result.items.length ? (
+          <ul className="mt-2 divide-y divide-line">
+            {result.items.map((item) => {
+              const done = added.includes(item.id);
+              return (
+                <li key={item.id} className="flex items-center gap-2 py-1.5">
+                  <div className="min-w-0 flex-1">
+                    <a href={item.url} target="_blank" rel="noreferrer" className="block truncate text-xs font-medium hover:text-accent">
+                      {item.title}
+                    </a>
+                    <span className="text-[11px] text-muted">{COLLATERAL_TYPE_LABEL[item.content_type] ?? item.content_type}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className={BUTTON}
+                    disabled={done}
+                    onClick={() => {
+                      onAdd(item);
+                      setAdded((ids) => [...ids, item.id]);
+                    }}
+                  >
+                    {done ? "Added" : "Add"}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="mt-2 text-xs text-muted">Nothing a client can be sent matches that. Try other words.</p>
+        )
+      ) : null}
+    </div>
   );
 }
 

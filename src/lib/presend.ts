@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { linkHosts } from "@/lib/collateral-links";
 import { relativeDays } from "@/lib/format";
 import type { Policies, SendingMode } from "@/lib/policy";
 import { findPlaceholders } from "@/lib/template";
@@ -44,7 +45,7 @@ export type PresendInput = {
   daysSinceContactEmailed: number | null;
   /** Names of other people with an open draft on the same account. */
   teammateDraftAuthors: string[];
-  policies: Pick<Policies, "frequencyCap" | "drafting">;
+  policies: Pick<Policies, "frequencyCap" | "drafting" | "collateral">;
 };
 
 export function runPresendChecks(input: PresendInput): PresendCheck[] {
@@ -150,6 +151,20 @@ export function runPresendChecks(input: PresendInput): PresendCheck[] {
       status: "block",
       label: "Unfilled placeholders",
       detail: `Fill in or remove: ${placeholders.join(", ")}`,
+    });
+  }
+
+  // SharePoint and OneDrive links usually only open for Lyzr staff.
+  const internalHosts = policies.collateral.email.internal_link_hosts.map((host) => host.toLowerCase());
+  const internal = linkHosts(input.body).filter((host) =>
+    internalHosts.some((suffix) => host === suffix || host.endsWith(`.${suffix}`)),
+  );
+  if (internal.length) {
+    checks.push({
+      key: "internal_links",
+      status: "warn",
+      label: "Link to an internal file",
+      detail: `Links to ${internal.join(", ")} usually open only for Lyzr staff. Use a public link, or take it out.`,
     });
   }
 

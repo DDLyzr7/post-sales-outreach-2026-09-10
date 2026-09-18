@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
  * Runs the jobs locally, the way a scheduler will once the app is hosted: the send
- * job every 30 seconds, the tracking job every 3 minutes and the Cortex sync every
- * hour. All go through /api/jobs/<job> with CRON_SECRET, so the dev server must be up.
+ * job every 30 seconds, the tracking job every 3 minutes, the Cortex sync every
+ * hour and the Skott feed every 6 hours. All go through /api/jobs/<job> with CRON_SECRET, so the dev server must be up.
  *
  *   npm run jobs                       (keeps running)
  *   npm run jobs -- --once             (one pass of each, then exits)
  *   npm run sync                       (one Cortex sync, then exits)
+ *   npm run skott                      (one Skott feed, then exits)
  */
 const base = (process.env.APP_BASE_URL ?? "http://localhost:3001").replace(/\/$/, "");
 const secret = process.env.CRON_SECRET;
@@ -15,7 +16,7 @@ if (!secret) {
   process.exit(1);
 }
 
-const SCHEDULE = { send: 30_000, track: 180_000, sync: 3_600_000 };
+const SCHEDULE = { send: 30_000, track: 180_000, sync: 3_600_000, skott: 21_600_000 };
 const onlyIndex = process.argv.indexOf("--only");
 const jobs = onlyIndex > -1 ? [process.argv[onlyIndex + 1]] : Object.keys(SCHEDULE);
 if (!jobs.every((job) => job in SCHEDULE)) {

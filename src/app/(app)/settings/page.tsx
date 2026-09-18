@@ -5,6 +5,7 @@ import { formatDate } from "@/lib/format";
 import { missingMailboxSettings } from "@/lib/microsoft/oauth";
 import { loadPolicies } from "@/lib/policy";
 import { createClient } from "@/lib/supabase/server";
+import type { SkottJobSummary } from "@/lib/jobs/skott";
 import type { SyncJobSummary } from "@/lib/jobs/sync";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,17 @@ function timeAgo(iso: string | null): string {
   if (minutes < 60) return `${minutes} min ago`;
   const hours = Math.round(minutes / 60);
   return hours < 48 ? `${hours} h ago` : formatDate(iso);
+}
+
+/** The last Skott feed's counts. */
+function SkottSummary({ summary }: { summary: SkottJobSummary }) {
+  if (typeof summary.listed !== "number") return null;
+  return (
+    <span className="text-muted">
+      {summary.listed} items listed ({summary.created} new, {summary.retired} retired) · {summary.shareable} can go in client emails
+      {summary.warnings.length ? ` · ${summary.warnings.join(" ")}` : ""}
+    </span>
+  );
 }
 
 /** The last sync's counts, plus what the lead may need to act on. */
@@ -181,11 +193,12 @@ export default async function SettingsPage({
               <h3 className="text-sm font-semibold">Jobs</h3>
               <p className="mt-0.5 text-muted">
                 The send job delivers queued emails; the tracking job reads replies and bounces; the sync mirrors
-                accounts, owners and contacts from Helix and Compass. All run through /api/jobs with CRON_SECRET
-                (<code>npm run jobs</code> locally, <code>npm run sync</code> for one sync).
+                accounts, owners and contacts from Helix and Compass; the Skott feed refreshes the collateral library.
+                All run through /api/jobs with CRON_SECRET (<code>npm run jobs</code> locally, <code>npm run sync</code>{" "}
+                or <code>npm run skott</code> for one run).
               </p>
               <dl className="mt-3 space-y-2">
-                {["send", "track", "sync"].map((job) => {
+                {["send", "track", "sync", "skott"].map((job) => {
                   const run = lastRun(job);
                   return (
                     <div key={job} className="flex flex-wrap items-center gap-2">
@@ -201,6 +214,7 @@ export default async function SettingsPage({
                               <span className="text-bad">{run.summary.error}</span>
                             ) : null}
                             {job === "sync" && run.ok ? <SyncSummary summary={run.summary as SyncJobSummary} /> : null}
+                            {job === "skott" && run.ok ? <SkottSummary summary={run.summary as SkottJobSummary} /> : null}
                           </>
                         ) : (
                           <span className="text-muted">never run</span>

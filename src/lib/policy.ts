@@ -58,6 +58,12 @@ export type TargetingPolicy = { renewal_window_days: number };
 
 export type DraftingPolicy = { recent_contact_warn_days: number };
 
+/** Which collateral can go in a client email. Postgres applies the same row. */
+export type CollateralPolicy = {
+  skott: { type_map: Record<string, string>; retire_min_ratio: number };
+  email: { content_types: string[]; link_hosts: string[]; internal_link_hosts: string[] };
+};
+
 export type Policies = {
   frequencyCap: FrequencyCapPolicy;
   staleness: StalenessPolicy;
@@ -67,9 +73,15 @@ export type Policies = {
   drafting: DraftingPolicy;
   sending: SendingPolicy;
   enrichment: EnrichmentPolicy;
+  collateral: CollateralPolicy;
 };
 
-const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting" | "drafting" | "sending" | "enrichment"> = {
+const FALLBACK: Pick<Policies, "frequencyCap" | "staleness" | "targeting" | "drafting" | "sending" | "enrichment" | "collateral"> = {
+  // Without the policy row, no Skott item is client-shareable (Postgres agrees).
+  collateral: {
+    skott: { type_map: {}, retire_min_ratio: 0.5 },
+    email: { content_types: [], link_hosts: [], internal_link_hosts: ["sharepoint.com"] },
+  },
   targeting: { renewal_window_days: 90 },
   drafting: { recent_contact_warn_days: 14 },
   frequencyCap: {
@@ -114,6 +126,7 @@ export async function loadPolicies(supabase: SupabaseClient): Promise<Policies> 
     drafting: (byKey.get("drafting_rules") as DraftingPolicy) ?? FALLBACK.drafting,
     sending: (byKey.get("sending") as SendingPolicy) ?? FALLBACK.sending,
     enrichment: (byKey.get("enrichment_rules") as EnrichmentPolicy) ?? FALLBACK.enrichment,
+    collateral: (byKey.get("collateral_rules") as CollateralPolicy) ?? FALLBACK.collateral,
   };
 }
 

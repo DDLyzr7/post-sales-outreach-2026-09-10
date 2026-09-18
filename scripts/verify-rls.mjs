@@ -601,6 +601,98 @@ for (const expected of EXPECTED) {
   for (const s of [riya, lead]) await s.client.auth.signOut();
 }
 
+// Skott collateral (20260918000100). Only collateral a client can be sent goes in
+// a draft; client_shareable comes from policy, not from whoever writes the row;
+// a search can add only public lyzr.ai items of an allowed type. Test rows use a
+// "verify-rls-" external id and the lead deletes them at the end.
+{
+  console.log("\nSkott collateral");
+  const signIn = async (email) => {
+    const client = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+    const { data, error } = await client.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(`sign in ${email}: ${error.message}`);
+    return { client, id: data.user.id };
+  };
+  const riya = await signIn("pm@example.com");
+  const lead = await signIn("lead@example.com");
+  const PRIYA = "44444444-0000-4000-8000-000000000101"; // Northwind, engaged
+  const SUBJECT = "verify-rls: skott";
+
+  const cleanup = async () => {
+    await lead.client.from("email_activity").delete().eq("subject", SUBJECT);
+    await lead.client.from("collateral").delete().eq("source_system", "skott").like("external_id", "verify-rls-%");
+  };
+  await cleanup();
+
+  const { data: internal, error: internalError } = await lead.client
+    .from("collateral")
+    .insert({
+      slug: "skott-verify-rls-internal", title: "verify-rls internal battle card", content_type: "battle_card",
+      asset_url: "https://lyzrdev.sharepoint.com/sites/SalesTeam/verify-rls.pdf",
+      source_system: "skott", external_id: "verify-rls-internal", client_shareable: true,
+    })
+    .select("id, client_shareable")
+    .single();
+  check("an internal Skott item is never client-shareable, whatever the writer says",
+    !internalError && internal?.client_shareable === false, internalError?.message ?? `client_shareable=${internal?.client_shareable}`);
+
+  const { error: ownerWrite } = await riya.client.from("collateral").insert({
+    slug: "verify-rls-owner", title: "forged", asset_url: "https://www.lyzr.ai/forged", content_type: "blog",
+  });
+  check("an owner can't write collateral directly", !!ownerWrite, ownerWrite ? ownerWrite.message : "INSERTED");
+
+  const { data: recorded, error: recordError } = await riya.client.rpc("record_skott_items", {
+    p_items: [
+      { id: "verify-rls-public", title: "verify-rls public blog", type: "blog", url: "https://www.lyzr.ai/blog/verify-rls/", source: "wordpress" },
+      { id: "verify-rls-sharepoint", title: "verify-rls deck", type: "deck", url: "https://lyzrdev.sharepoint.com/x.pptx", source: "sharepoint" },
+      { id: "verify-rls-prototype", title: "verify-rls prototype", type: "prototype", url: "https://www.lyzr.ai/demo", source: "pipeline-tracker" },
+    ],
+  });
+  check("a search records only public lyzr.ai items of an allowed type", !recordError && recorded === 1,
+    recordError?.message ?? `${recorded} recorded`);
+  const { data: publicRow } = await riya.client
+    .from("collateral").select("id, client_shareable").eq("external_id", "verify-rls-public").maybeSingle();
+
+  const { data: again } = await riya.client.rpc("record_skott_items", {
+    p_items: [{ id: "verify-rls-public", title: "rewritten", type: "blog", url: "https://www.lyzr.ai/blog/other/" }],
+  });
+  const { data: afterAgain } = await riya.client.from("collateral").select("title").eq("external_id", "verify-rls-public").maybeSingle();
+  check("a search can't rewrite a collateral row that exists", again === 0 && afterAgain?.title === "verify-rls public blog",
+    `${again} recorded, title "${afterAgain?.title}"`);
+
+  const draft = (collateralIds) => ({
+    account_id: NORTHWIND, contact_id: PRIYA, sender_id: riya.id, email_type: "product_update", send_path: "warm",
+    subject: SUBJECT, body_text: "Test draft written by scripts/verify-rls.mjs.",
+    draft_context: { source: "template", collateral_ids: collateralIds },
+  });
+  if (internal && publicRow) {
+    const { error: badDraft } = await riya.client.from("email_activity").insert(draft([internal.id]));
+    check("a draft can't carry internal collateral", !!badDraft, badDraft ? badDraft.message : "INSERTED");
+
+    const { data: goodDraft, error: goodError } = await riya.client.from("email_activity").insert(draft([publicRow.id])).select("id").single();
+    check("a draft can carry client-shareable collateral", !goodError, goodError?.message ?? "saved");
+
+    if (goodDraft) {
+      const { error: swapError } = await riya.client
+        .from("email_activity").update({ draft_context: { source: "template", collateral_ids: [publicRow.id, internal.id] } }).eq("id", goodDraft.id);
+      check("internal collateral can't be added to a saved draft", !!swapError, swapError ? swapError.message : "UPDATED");
+    }
+  } else {
+    check("Skott test rows set up", false, "setup failed");
+  }
+
+  const anon = createClient(url, anonKey, { auth: { autoRefreshToken: false, persistSession: false } });
+  const { error: anonRecord } = await anon.rpc("record_skott_items", { p_items: [] });
+  check("the anon key can't record Skott items", !!anonRecord, anonRecord ? anonRecord.message : "CALLED");
+
+  await cleanup();
+  const { count: left } = await lead.client
+    .from("collateral").select("id", { count: "exact", head: true }).like("external_id", "verify-rls-%");
+  check("Skott test rows cleaned up", left === 0, `${left ?? "?"} left`);
+
+  for (const s of [riya, lead]) await s.client.auth.signOut();
+}
+
 // The anon key with no session must see nothing at all.
 {
   const anon = createClient(url, anonKey, {

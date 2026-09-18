@@ -20,9 +20,9 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-17 (Cortex sync)._
+_Last updated 2026-09-18 (Skott collateral)._
 
-## Status — Phases 1–7 built (Phase 3 minus Skott), Cortex sync, Apollo enrichment and Microsoft sign-in built; all awaiting review
+## Status — Phases 1–7 built (Skott included), Cortex sync, Apollo enrichment and Microsoft sign-in built; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -36,8 +36,8 @@ global broadcast.
 | --- | --- |
 | 1 — foundation: schema, auth, RLS, read-only two-pane view | **done, unreviewed** |
 | 2 — accounts and targeting: lifecycle, My targets, Team coverage, owner assignment | **done, unreviewed** |
-| 3 — collateral search: natural-language search, Skott API feed | **search built, unreviewed**; the Skott feed waits on its API docs and a key; how collateral goes into emails is parked until Skott's data shape is known |
-| 4 — one-click drafting with Claude, collateral in drafts, pre-send check | **done, unreviewed** (2026-09-11). Collateral is named in drafts, not linked, until Skott |
+| 3 — collateral search: natural-language search, Skott feed, collateral links in emails | **done, unreviewed** (Skott 2026-09-18). Collateral goes in as a plain link; only client-shareable items |
+| 4 — one-click drafting with Claude, collateral in drafts, pre-send check | **done, unreviewed** (2026-09-11). Links in drafts since 2026-09-18 |
 | 5 — sending: owner's Microsoft 365 mailbox on both paths, cap and opt-outs enforced, delivery tracking | **done, unreviewed** (2026-09-13). In **test mode** (`app_policy.sending.mode = dry_run`); live sending waits on the Azure mailbox settings (open question 10) |
 | 6 — global broadcast to all accounts | **done, unreviewed** (2026-09-13). Broadcasts sit outside the cap |
 | 7 — reporting: outreach consistency, account coverage, relevant material, broadcast results | **done, unreviewed** (2026-09-13) |
@@ -48,6 +48,19 @@ Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surf
 phase's open questions before writing code that depends on them. (On 2026-09-13 the user
 asked for everything buildable in one pass; that was a one-off, so stop for review again
 from here.)
+
+### Verification state (2026-09-18)
+
+- **Skott** (entry 31): `tsc`, `eslint`, `next build`, the SQL parse (17 files, plus the new
+  PL/pgSQL bodies) and `db:verify-rls` (9 new Skott checks) pass. Migration `20260918000100` is
+  **pushed**. The feed ran twice against live Skott (1,011 listed, 299 client-shareable; the
+  second run changed nothing). **End to end on the dev server as Riya** (scratch script, deleted):
+  collateral search returns Skott results with internal items marked; Draft with Claude on
+  Priya (Northwind, sample) put a real link in the body and recorded it; saving with an added
+  link records it, deleting the link drops it, and a SharePoint link gets the pre-send warning.
+  The test draft was cancelled. **Not verified:** the picker clicked in a browser (its server
+  action was exercised through the form post), and a Claude draft on a real account.
+- **Committed and pushed** at the user's request (2026-09-18).
 
 ### Verification state (2026-09-17)
 
@@ -512,25 +525,70 @@ from here.)
       (probably barathan@), KJ, Shefali, Siddharth (probably sid@).
     - `verify-rls` covers the new table; all checks pass.
 
+**2026-09-18:**
+
+31. **Built the Skott feed and collateral links (CL-04, CL-05, CL-06).** The user gave Skott's
+    MCP endpoint and key (`claude mcp add … skott-kb`, added to Claude Code's local config) and
+    said "yes" to building it. `SKOTT_MCP_URL` and `SKOTT_API_KEY` are in `.env.local` (key
+    pasted in chat: **rotate it**).
+    - **Skott is an MCP server, not a REST API.** Two read-only tools: `list_kb` (sections of
+      items: id, title, type, url, source, date) and `search_kb` (semantic, `llmScore` 0–10).
+      Stateless JSON-RPC `tools/call` over HTTP, answered as one SSE event. No tags for
+      product, role or industry; items are links, never files. Search takes 6–15 s.
+    - **The library:** 1,011 items: 629 lyzr.ai WordPress pages, 273 SharePoint files
+      (internal, edit-mode links), 110 prototypes built for named clients. **`list_kb` caps
+      blog posts and lyzr.ai blueprints at 100 each**, and leaves out whole post types that
+      search finds (`/ai-agents/`, `/landing-pages/`, `/agenttracker/`).
+    - **What can go in a client email (asked by the user, proposed and built):** public
+      lyzr.ai case studies (56), blueprints/one-pagers (100), playbooks (18), templates and
+      use-case lists (25), blog posts (100): 299 items. Battle cards, client prototypes, decks,
+      research (SOC 2, GDPR), glossaries, comparison pages, web pages and every SharePoint file
+      stay internal: searchable, never in an email. It's `app_policy.collateral_rules.email`
+      (content types plus link hosts), so the lead can change it.
+    - **Migration `20260918000100_skott_collateral`,** pushed: Skott content types, collateral
+      `source_system`/`external_id`/`source_origin`/`published_on`/`listed_at`/
+      `client_shareable`, the `collateral_rules` row, a trigger computing `client_shareable`
+      (recomputed when the rule changes), `record_skott_items()`,
+      `app.guard_email_collateral`, `search_collateral` with `p_shareable_only` and two new
+      columns, and `skott` as a `job_run` job.
+    - **Feed:** `src/lib/skott.ts`, `src/lib/jobs/skott.ts`, `/api/jobs/skott`, `npm run skott`;
+      `npm run jobs` runs it every 6 hours. Retires only listed items that vanish, and only when
+      the listing isn't much shorter than before.
+    - **Search:** `searchLibrary()` asks Skott first, then the Postgres library. Shareable
+      Skott hits missing from the library are added through `record_skott_items()`. The
+      collateral page runs Skott beside Claude's reading of the request (about 15 s).
+    - **Drafting:** Skott is asked for material for the contact's title, account industry and
+      current work (12 s timeout, `llmScore` ≥ 5, shareable only). Claude marks link spots with
+      `{{link:<id>}}`, which `placeLinks()` swaps for the URL. The template fallback fills
+      `{{collateral_link}}`. A Claude draft now takes about 25 s (was 8–11 s).
+    - **Rule:** collateral is "in the email" when its link is in the body. Saving recomputes
+      `draft_context.collateral_ids` from the body; the reviewer is told which links are
+      approved.
+    - **"Add collateral"** on the draft editor: suggestions for the contact, or a search, and
+      Add drops "Title: link" at the cursor (before the sign-off if the cursor was never
+      placed). Server action `findCollateralForDraft`.
+    - **Pre-send:** a warning for links to SharePoint or OneDrive (`internal_link_hosts`).
+    - **Feature list:** CL-04, CL-05, CL-06 built; 47 built, 1 planned (GV-05), 0 waiting on
+      input. Republished.
+
 **Priority order the user follows, with status (2026-09-13):**
 
 | Stage | Scope | Status |
 |---|---|---|
 | **P0** | Git repo for the root app; Supabase project, run it, review Phases 1–2; Comms Tracker leak fix; the answers | Repo and live Supabase **done**. User review of Phases 1–4 and the Comms Tracker housekeeping still open |
 | **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI **built** 2026-09-13. Hosting on Vercel comes **last** |
-| **P2** | Skott connector; collateral search; collateral in emails | Search **built**. Skott feed waits on API docs. Collateral in emails parked until Skott |
+| **P2** | Skott connector; collateral search; collateral in emails | **Built** 2026-09-18 (Skott MCP feed, links in emails, Add collateral) |
 | **P3** | Claude drafting | **Built** 2026-09-11, awaiting review |
 | **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | **Built** 2026-09-13 in test mode. Live needs the Azure mailbox settings |
 | **P5** | Global broadcast | **Built** 2026-09-13 |
 | **P6** | Reporting | **Built** 2026-09-13 |
 | **P7** | Compass; enrichment; Comms Tracker's future | Apollo enrichment **built** (needs a key). Compass waits on Krish; Comms Tracker undecided |
 
-**Stopped for review after the Cortex sync and owners (2026-09-17).**
-- **Next when answers arrive:** owner emails for the unresolved Compass names (entry 30), the
-  Skott feed once its API docs arrive (then CL-05 and CL-06), and live sending once the Azure
-  mailbox settings are in.
+**Stopped for review after the Skott feed (2026-09-18).** Only GV-05 (hosting) is left to build.
+- **Next when answers arrive:** owner emails for the unresolved Compass names (entry 30), and
+  live sending once the Azure mailbox settings are in.
 - **Last:** Vercel hosting on the company account, with Vercel Cron calling `/api/jobs/send`,
-  `/api/jobs/track` and `/api/jobs/sync`.
+  `/api/jobs/track`, `/api/jobs/sync` and `/api/jobs/skott`.
 
 **Waiting on the user:**
 - **Post-Sales Outreach:**
@@ -538,8 +596,11 @@ from here.)
     it is on), and add the rest of the Microsoft sign-in settings (open question 8).
   - **Review Phases 1–7** in the browser at http://localhost:3001: sign in as
     `pm@example.com` / `PostSales!2026`, open Northwind Logistics and use Draft with Claude.
-  - **Answers to pass on:** Skott API docs and a key. Confirm the two unconfirmed account
-    pairs (entry 29). Ask Krish whether Helix and Compass share an id.
+  - **Answers to pass on:** Confirm the two unconfirmed account pairs (entry 29). Ask Krish
+    whether Helix and Compass share an id. Ask Skott's owner to lift `list_kb`'s 100-item cap
+    (entry 31).
+  - **Skott:** confirm the client-email rule (entry 31), and rotate the Skott key (pasted in
+    chat).
   - **Owners (entry 30):** emails for the 13 unresolved Compass names (add them to
     `cortex_sync.people`); owners for JP Morgan Chase and Neuralgo (GoML); confirm Rijo as
     primary CSM on 19 accounts.
@@ -582,8 +643,9 @@ npm run db:push          # apply supabase/migrations/ to the hosted project
 npm run db:seed-users    # create the 4 auth users (service-role key)
 npm run db:seed          # apply supabase/seed.sql (needs psql + SUPABASE_DB_URL)
 npm run db:verify-rls    # THE check that proves the ownership model and write guards
-npm run jobs             # send every 30 s, tracking every 3 min, Cortex sync hourly, via /api/jobs (dev server up)
+npm run jobs             # send every 30 s, tracking every 3 min, Cortex sync hourly, Skott every 6 h, via /api/jobs (dev server up)
 npm run sync             # one Cortex sync (Helix + Compass) through /api/jobs/sync
+npm run skott            # one Skott feed (collateral library) through /api/jobs/skott
 python3 scripts/check-sql.py   # parse all SQL (needs pglast; CI runs it too)
 ```
 
@@ -735,6 +797,20 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
     - Test scripts must never reach synced accounts: `verify-rls` scopes broadcasts to sample
       product keys and only runs them in `dry_run`.
 
+22. **Only client-shareable collateral goes in a client email, enforced in Postgres.**
+    - `collateral.client_shareable` is computed by trigger from `app_policy.collateral_rules`
+      for Skott rows; whoever writes the row can't set it. Changing the rule recomputes them.
+    - `app.guard_email_collateral` refuses a signed-in user's draft that adds a collateral id
+      that isn't active and shareable. Only new ids are checked.
+    - `record_skott_items()` is the one path by which a signed-in user adds collateral: insert
+      only (never updates), and only rows that pass the rule. Everything else is the feed
+      (service role) or the lead.
+    - Collateral is in an email when its link is in the body; saving recomputes
+      `draft_context.collateral_ids` from the body. Claude never writes a URL; it marks
+      `{{link:<id>}}` for an id it was given.
+    - The feed never deletes collateral (past emails point at it) and never retires items only
+      a search found (`listed_at` null).
+
 ## Layout
 
 ```
@@ -757,6 +833,9 @@ supabase/migrations/    01 enums+helpers · 02 core tables · 03 collateral/temp
                                        source, contact stakeholder fields, cortex_sync policy
                         20260917000200 pending owners: account_pending_owner, claim at first
                                        sign-in, all Helix/Compass owner sources
+                        20260918000100 Skott: collateral source columns, client_shareable from
+                                       collateral_rules, record_skott_items, email collateral
+                                       guard, search_collateral v2, skott job
 supabase/seed.sql       fictional: 8 accounts (incl. churned Meridian Travel, unassigned
                         Tidewater Foods), contacts, collateral, templates, 7 historical sends
 scripts/                seed-users.mjs · apply-sql.mjs · verify-rls.mjs · run-jobs.mjs ·
@@ -773,9 +852,12 @@ src/lib/targeting.ts    My targets buckets: win back · going quiet · renewal �
 src/lib/providers/      index.ts (SendProvider, EnrichmentProvider) · send.ts (microsoft_graph,
                         dry_run) · apollo.ts
 src/lib/microsoft/      oauth.ts (mailbox consent, token refresh) · graph.ts (send, inbox, bounces)
-src/lib/jobs/           send.ts · track.ts · sync.ts (Cortex) · mailbox.ts (access tokens) — service
+src/lib/jobs/           send.ts · track.ts · sync.ts (Cortex) · skott.ts (collateral feed) ·
+                        mailbox.ts (access tokens) — service
                         role, via /api/jobs
 src/lib/cortex/         helix.ts · compass.ts — server-only API clients, used only by the sync job
+src/lib/skott.ts        Skott MCP client (list_kb, search_kb), server-only
+src/lib/collateral-links.ts  links in email bodies: placeLinks, linkedCollateralIds, linkHosts
 src/lib/crypto.ts       token encryption, constant-time compare
 src/lib/supabase/service.ts  service-role client, created only by the job route
 src/app/(app)/          dashboard · accounts/[id] two-pane (+ accounts/actions.ts opt-outs,
@@ -790,7 +872,8 @@ src/app/auth/callback/  Microsoft sign-in return: exchanges the PKCE code, error
 src/lib/auth.ts         password-sign-in gate (localhost only), same-site redirects, origin
 src/lib/ai/             client.ts (the one Anthropic client) · collateral-search.ts ·
                         brief.ts (facts for drafting) · draft-email.ts · draft-review.ts
-src/lib/db/collateral.ts  search_collateral RPC, plus the contact a search is for
+src/lib/db/collateral.ts  searchLibrary (Skott first, then search_collateral), plus the contact a
+                        search is for
 src/lib/db/drafts.ts    drafting facts for a contact, open drafts, one email with its context and
                         delivery, recent sent emails
 src/lib/db/broadcasts.ts  campaigns, audience preview, recipients
@@ -851,9 +934,11 @@ same goes for `/team`'s `notFound()` for non-admins and the hidden nav link.
     the people chosen.
   - **"Complete everything that needs to be built":** Phases 5–7 and enrichment were built
     in one pass, without stopping between phases.
-- **Skott is the collateral source, fed through its API** (2026-09-10). Don't block
-  collateral work on it: build against a provider interface and the existing
-  `collateral` table.
+- **Skott is the collateral source, fed through its API** (2026-09-10). Connected 2026-09-18
+  through its MCP server (entry 31).
+- **Collateral goes into emails as a plain link** (2026-09-18). Skott items are links, never
+  files. Only public lyzr.ai case studies, blueprints, playbooks, templates and blog posts go to
+  clients (`collateral_rules`), pending the user's confirmation.
 - **Collateral search is database ranking plus Claude** (2026-09-10).
   - **Claude reads the request:** Claude Opus 5 (`claude-opus-5`), effort `low`, with
     structured output and `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`).
@@ -937,9 +1022,8 @@ a mockup affordance, not a pattern to copy into the app.
 
 **Needed before Phase 3's Skott connector:**
 
-2. **Skott API docs and a key:** the endpoints, how collateral is tagged (product,
-   persona, content type), and how authentication works. Also how Skott stores an item
-   (a file or a link), which decides how collateral goes into emails.
+2. **Skott. Answered 2026-09-18:** an MCP endpoint and key (entry 31). Items are links,
+   untagged. Still open: `list_kb`'s 100-item cap per section, and key rotation.
 
 **Needed before Phase 5:**
 

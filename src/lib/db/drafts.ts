@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { searchCollateral } from "@/lib/db/collateral";
+import { searchLibrary } from "@/lib/db/collateral";
+import { FUNCTION_LABEL } from "@/lib/format";
 import { emailTypeFor } from "@/lib/policy";
 import type {
   AccountOverview, BusinessFunction, CollateralFact, CollateralHit, Contact, DraftContext, DraftReview, DraftSummary, EmailStatus, EmailType,
@@ -57,7 +58,7 @@ export async function getDraftingSubject(
   if (!UUID.test(accountId) || !UUID.test(contactId)) return null;
   const supabase = await createClient();
 
-  const [contactRes, accountRes, productRes, accountProductRes, engagedRes, introRes, pastRes, engagementRes] =
+  const [contactRes, accountRes, productRes, accountProductRes, engagedRes, introRes, pastRes, engagementRes, industryRes] =
     await Promise.all([
       supabase
         .from("contact")
@@ -103,6 +104,8 @@ export async function getDraftingSubject(
         .in("status", ["active", "in_progress"])
         .order("source_updated_at", { ascending: false, nullsFirst: false })
         .limit(8),
+      // Only to find fitting collateral; the brief doesn't carry it.
+      supabase.from("account").select("industry").eq("id", accountId).maybeSingle(),
     ]);
 
   const contact = contactRes.data as Contact | null;
@@ -131,15 +134,36 @@ export async function getDraftingSubject(
     .filter((p) => (contact.type === "engaged" ? p.in_use : !p.in_use))
     .map((p) => p.key);
 
-  const [template, collateral] = await Promise.all([
+  const engagements = ((engagementRes.data ?? []) as { kind: "project" | "use_case"; name: string; stage: string | null; status: string | null }[])
+    .map(({ kind, name, stage, status }) => ({ kind, name, stage: stage ?? status }));
+  const industry = (industryRes.data as { industry: string | null } | null)?.industry ?? null;
+
+  // What Skott is asked for: material a client can read, for this person, near
+  // the work they already do with us. Only client-shareable collateral comes back.
+  const skottQuery = [
+    instruction,
+    `Case study, blueprint or playbook for a ${contact.title ?? `${FUNCTION_LABEL[contact.business_function]} leader`}` +
+      (industry ? ` in ${industry}` : ""),
+    engagements.length ? `Related to: ${engagements.slice(0, 4).map((e) => e.name).join(", ")}` : null,
+    products.filter((p) => fittingKeys.includes(p.key)).map((p) => p.name).join(", ") || null,
+  ]
+    .filter(Boolean)
+    .join(". ");
+
+  const [template, library] = await Promise.all([
     getTemplateFor(emailType, account.is_friend_account ? "friend_account" : contact.type),
-    searchCollateral({
+    searchLibrary({
       query: instruction,
       productKeys: fittingKeys,
       functions: [contact.business_function],
       limit: 6,
+      shareableOnly: true,
+      skottQuery,
+      skottMinScore: 5,
+      skottTimeoutMs: 12_000,
     }),
   ]);
+  const collateral = library.hits;
 
   type PastRow = {
     subject: string; body_text: string | null; sent_at: string; email_type: EmailType;
@@ -165,8 +189,7 @@ export async function getDraftingSubject(
       sender_name: row.sender?.full_name ?? null,
     })),
     collateral,
-    engagements: ((engagementRes.data ?? []) as { kind: "project" | "use_case"; name: string; stage: string | null; status: string | null }[])
-      .map(({ kind, name, stage, status }) => ({ kind, name, stage: stage ?? status })),
+    engagements,
   };
 }
 

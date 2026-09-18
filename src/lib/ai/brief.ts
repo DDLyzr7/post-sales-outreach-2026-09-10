@@ -132,7 +132,9 @@ export function buildBrief(
         ? options.collateral
             .map(
               (item) =>
-                `- id ${item.collateral_id}: "${item.title}" (${item.content_type.replace(/_/g, " ")}; ${item.product_names.join(", ") || "no product"})${item.summary ? ` ${item.summary}` : ""}`,
+                `- id ${item.collateral_id}: "${item.title}" (${item.content_type.replace(/_/g, " ")}; ${item.product_names.join(", ") || "no product"})${item.summary ? ` ${item.summary}` : ""}` +
+                // The reviewer sees the links, so it can tell approved links from others.
+                (options.collateralTag === "collateral_mentioned" ? ` Link: ${item.asset_url}` : ""),
             )
             .join("\n")
         : "None.",

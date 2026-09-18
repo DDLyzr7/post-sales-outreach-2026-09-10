@@ -78,6 +78,18 @@ export const COLLATERAL_TYPE_LABEL: Record<string, string> = {
   roi_calculator: "ROI calculator",
   guide: "Guide",
   release_note: "Release note",
+  // Skott's types.
+  playbook: "Playbook",
+  template: "Template or use cases",
+  blog: "Blog post",
+  deck: "Deck",
+  research: "Research",
+  battle_card: "Battle card",
+  prototype: "Prototype",
+  glossary: "Glossary",
+  comparison: "Comparison",
+  web_page: "Web page",
+  other: "Other",
 };
 
 /** "finance:committee" -> "Finance (leadership)". */

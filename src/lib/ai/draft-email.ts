@@ -2,12 +2,14 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { buildBrief } from "@/lib/ai/brief";
 import { anthropic, FALLBACK, logClaudeError, MODEL } from "@/lib/ai/client";
+import { placeLinks } from "@/lib/collateral-links";
 import type { DraftingSubject } from "@/lib/db/drafts";
 import type { SendPath } from "@/lib/types";
 
 /**
  * Claude writes one email from the facts in the brief. It can only mention
- * collateral from the list it is given, and it marks any specific it doesn't
+ * collateral from the list it is given (client-shareable items only), marking
+ * where each link goes; placeLinks() swaps in the real link. It marks any specific it doesn't
  * have with [[double brackets]] instead of inventing it; the pre-send check
  * refuses to mark a draft ready while a marker is left. Returns null whenever
  * Claude can't help, and the caller falls back to the template.
@@ -32,7 +34,7 @@ How to write it:
 - Match the relationship. A champion can be relaxed. A dormant or detractor relationship, or a churned account, needs a careful, low-pressure note. A leadership contact who has never heard from us needs a clear reason for the email in the first two sentences.
 - Current work with us lists the account's projects and use cases by their internal names. You may refer to one that fits the recipient in plain, general terms, but never state progress, dates, results or problems beyond the stage given.
 - Don't repeat what recent emails to this account already said. Refer back to one only when it went to this same recipient; never mention emails sent to other people.
-- Mention at most two pieces of collateral, by title, and only from the collateral list. Don't include URLs; links are added later.
+- Mention at most two pieces of collateral, only from the collateral list, and only when one genuinely fits the recipient. Refer to it naturally by what it is. On its own line straight after the sentence that mentions it, write {{link:<its id>}}; the app swaps in the link. Never write a URL yourself.
 - Sign off with the sender's first name on a warm email and full name on a cold one.
 
 What you must not do:
@@ -94,10 +96,16 @@ export async function writeDraft(
     const known = new Set(knownIds);
     if (!out.subject.trim() || !out.body.trim()) return null;
 
+    const linked = placeLinks(
+      out.body.trim(),
+      out.collateral_ids.filter((id) => known.has(id)),
+      subject.collateral,
+    );
+
     return {
       subject: out.subject.trim(),
-      body: out.body.trim(),
-      collateral_ids: [...new Set(out.collateral_ids.filter((id) => known.has(id)))],
+      body: linked.body,
+      collateral_ids: linked.collateralIds,
       notes_for_owner: out.notes_for_owner.map((n) => n.trim()).filter(Boolean).slice(0, 3),
     };
   } catch (error) {

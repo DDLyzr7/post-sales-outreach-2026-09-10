@@ -1,11 +1,12 @@
 import { safeEqual } from "@/lib/crypto";
 import { runSendJob } from "@/lib/jobs/send";
+import { runSkottJob } from "@/lib/jobs/skott";
 import { runSyncJob } from "@/lib/jobs/sync";
 import { runTrackJob } from "@/lib/jobs/track";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
- * The only entry point to the send, tracking and Cortex sync jobs. Called by a scheduler
+ * The only entry point to the send, tracking, Cortex sync and Skott feed jobs. Called by a scheduler
  * (`npm run jobs` locally; Vercel Cron once hosted) with
  * `Authorization: Bearer $CRON_SECRET`. Without a matching secret it refuses, and
  * without CRON_SECRET set at all it refuses everything.
@@ -17,6 +18,7 @@ const JOBS = {
   send: runSendJob,
   track: runTrackJob,
   sync: runSyncJob,
+  skott: runSkottJob,
 } as const;
 
 async function handle(request: Request, { params }: { params: Promise<{ job: string }> }) {

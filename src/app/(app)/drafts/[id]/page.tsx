@@ -341,7 +341,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
                 </div>
               ) : null}
               <div>
-                <dt className="text-muted">Collateral mentioned</dt>
+                <dt className="text-muted">Collateral linked</dt>
                 <dd>
                   {detail.collateral.length ? (
                     <ul className="mt-0.5 space-y-1">
@@ -371,7 +371,7 @@ export default async function DraftPage({ params }: { params: Promise<{ id: stri
               ) : null}
             </dl>
             <p className="border-t border-line px-4 py-2.5 text-[11px] text-muted">
-              Collateral is named, not linked. How it goes into emails waits on Skott.
+              Collateral goes in as a plain link in the body; nothing is tracked. Delete the link to take it out.
             </p>
           </Card>
         </aside>

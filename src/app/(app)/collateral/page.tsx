@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Badge, Card, EmptyState } from "@/components/ui";
 import { planCollateralSearch } from "@/lib/ai/collateral-search";
-import { getCollateralContext, listActiveProducts, searchCollateral } from "@/lib/db/collateral";
+import { getCollateralContext, listActiveProducts, searchLibrary } from "@/lib/db/collateral";
 import { COLLATERAL_TYPE_LABEL, FUNCTION_LABEL, personaLabel } from "@/lib/format";
+import { searchSkott } from "@/lib/skott";
 import type { BusinessFunction } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,13 @@ export default async function CollateralPage({
     listActiveProducts(),
   ]);
 
+  // Skott reads the request as written (plus who it's for), beside Claude's reading
+  // of it, which ranks the rest of the library.
+  const skottHits = query
+    ? searchSkott(
+        `${query}${context ? ` (for ${context.contactTitle ?? `a ${FUNCTION_LABEL[context.businessFunction]} leader`})` : ""}`,
+      )
+    : null;
   const plan = query ? await planCollateralSearch(query, products) : null;
 
   // Claude's reading of the request, plus the contact's role and fitting products
@@ -33,11 +41,12 @@ export default async function CollateralPage({
     ...(plan?.functions ?? []),
     ...(context ? [context.businessFunction] : []),
   ]);
-  const hits = await searchCollateral({
+  const { hits, skott } = await searchLibrary({
     query: query ? (plan?.keywords.length ? plan.keywords.join(" ") : query) : null,
     productKeys,
     functions,
     contentTypes: plan?.content_types ?? [],
+    skottHits: skottHits ?? undefined,
   });
 
   const productName = new Map(products.map((p) => [p.key, p.name]));
@@ -47,8 +56,9 @@ export default async function CollateralPage({
     <div className="mx-auto w-full max-w-[1100px] px-6 py-8">
       <h1 className="font-display text-xl font-semibold tracking-tight">Collateral</h1>
       <p className="mt-1 max-w-[70ch] text-sm text-muted">
-        Describe what you need in plain words. Claude reads the request, and the library is
-        ranked by product, role and content type.
+        Describe what you need in plain words. Skott searches Lyzr&apos;s knowledge base, and
+        Claude&apos;s reading of the request ranks the rest of the library by product, role and
+        content type.
       </p>
 
       {context ? (
@@ -115,13 +125,17 @@ export default async function CollateralPage({
           </p>
         )
       ) : null}
+      {skott === "unavailable" ? (
+        <p className="mt-2 text-xs text-warn">
+          Skott didn&apos;t answer, so these results come from the library&apos;s own copy only.
+        </p>
+      ) : null}
 
       <Card className="mt-6 overflow-hidden">
         {hits.length === 0 ? (
           <div className="p-6">
             <EmptyState>
-              Nothing in the library matches that yet. Try different words; the library fills from
-              Skott once it&apos;s connected.
+              Nothing in the library matches that. Try different words.
             </EmptyState>
           </div>
         ) : (
@@ -139,6 +153,7 @@ export default async function CollateralPage({
                   </a>
                   <Badge tone="ok">{COLLATERAL_TYPE_LABEL[hit.content_type] ?? hit.content_type}</Badge>
                   {hit.product_names.map((name) => <Badge key={name} tone="accent">{name}</Badge>)}
+                  {hit.client_shareable ? null : <Badge tone="warn">Internal: not for client emails</Badge>}
                 </div>
                 {hit.summary ? <p className="mt-1 max-w-[80ch] text-xs text-muted">{hit.summary}</p> : null}
                 {hit.personas.length ? (
@@ -153,8 +168,9 @@ export default async function CollateralPage({
       </Card>
 
       <p className="mt-4 text-xs text-muted">
-        The library holds sample collateral until the Skott feed is connected. Links open the
-        collateral itself; nothing is tracked.
+        The library comes from Skott, beside the sample collateral. Only public lyzr.ai case studies,
+        blueprints, playbooks, templates and blog posts can go in client emails; the rest is for reading.
+        Links open the collateral itself; nothing is tracked.
       </p>
     </div>
   );

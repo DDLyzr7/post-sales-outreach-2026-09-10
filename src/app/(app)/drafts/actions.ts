@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { writeDraft } from "@/lib/ai/draft-email";
 import { reviewDraft } from "@/lib/ai/draft-review";
 import { MODEL } from "@/lib/ai/client";
+import { collateralLine, linkedCollateralIds } from "@/lib/collateral-links";
+import { SKOTT_ONLY_PREFIX, searchLibrary } from "@/lib/db/collateral";
 import { getCurrentUser } from "@/lib/db/queries";
 import { getDraft, getDraftingSubject, UUID, type DraftingSubject } from "@/lib/db/drafts";
 import { firstName, FUNCTION_LABEL } from "@/lib/format";
@@ -12,7 +14,7 @@ import { emailTypeFor, loadPolicies, resolveSendPath, type Policies } from "@/li
 import { blockers, draftDigest, runPresendChecks } from "@/lib/presend";
 import { createClient } from "@/lib/supabase/server";
 import { fillTemplate } from "@/lib/template";
-import type { AppUser, DraftContext, DraftReview, SendPath } from "@/lib/types";
+import type { AppUser, CollateralFact, DraftContext, DraftReview, SendPath } from "@/lib/types";
 
 /**
  * Drafting and sending actions. A draft goes drafted -> approved (the owner marked
@@ -83,6 +85,7 @@ function templateDraft(subject: DraftingSubject, sender: AppUser): { subject: st
   const collateral =
     subject.collateral.find((c) => c.personas.includes(persona) && (!productName || c.product_names.includes(productName))) ??
     subject.collateral.find((c) => c.personas.includes(persona)) ??
+    subject.collateral[0] ??
     null;
   // "HR" and "IT" stay capitalised; "Operations" reads as "operations" mid-sentence.
   const teams = [
@@ -102,6 +105,7 @@ function templateDraft(subject: DraftingSubject, sender: AppUser): { subject: st
     product_name: productName,
     value_prop: subject.crossSell?.value_prop ?? featured?.value_prop ?? null,
     collateral_title: collateral?.title ?? null,
+    collateral_link: collateral ? collateralLine(collateral) : null,
     existing_team: teams.length > 1 ? `${teams.slice(0, -1).join(", ")} and ${teams.at(-1)}` : (teams[0] ?? null),
   };
 
@@ -130,7 +134,7 @@ async function compose(
     source: written ? "claude" : "template",
     model: written ? MODEL : null,
     instruction,
-    collateral_ids: written?.collateral_ids ?? [],
+    collateral_ids: written?.collateral_ids ?? linkedCollateralIds(fallback!.body, subject.collateral),
     notes_for_owner: written?.notes_for_owner ?? [],
     recent_email_count: subject.pastEmails.length,
     generated_at: new Date().toISOString(),
@@ -248,6 +252,35 @@ export async function updateDraft(_prev: DraftActionState, formData: FormData): 
   const policies = await loadPolicies(supabase);
   const sendPath = sendPathFor(policies.sendPathRouting, contact.type, account.is_friend_account);
 
+  // Collateral in the email is whatever collateral's link is in the body: what was
+  // there before plus anything added with "Add collateral", minus links deleted.
+  // Postgres refuses any added item a client can't be sent.
+  let draftContext: DraftContext | undefined;
+  let mentioned = detail.collateral;
+  if (!locked) {
+    const previous = draft.draft_context?.collateral_ids ?? [];
+    const added = String(formData.get("added_collateral_ids") ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter((id) => UUID.test(id));
+    const candidates = [...new Set([...previous, ...added])].filter((id) => UUID.test(id));
+    const { data: linkable } = candidates.length
+      ? await supabase.from("collateral").select("collateral_id:id, title, summary, content_type, asset_url").in("id", candidates)
+      : { data: [] };
+    const rows = ((linkable ?? []) as Omit<CollateralFact, "product_names">[]).map((row) => ({ ...row, product_names: [] }));
+    const ids = linkedCollateralIds(bodyText, rows);
+    mentioned = rows.filter((row) => ids.includes(row.collateral_id));
+    if (ids.length !== previous.length || ids.some((id, i) => id !== previous[i])) {
+      draftContext = {
+        ...(draft.draft_context ?? {
+          source: "template", model: null, instruction: null, notes_for_owner: [],
+          recent_email_count: 0, generated_at: new Date().toISOString(),
+        }),
+        collateral_ids: ids,
+      };
+    }
+  }
+
   const content = locked
     ? {}
     : {
@@ -256,6 +289,7 @@ export async function updateDraft(_prev: DraftActionState, formData: FormData): 
         send_path: sendPath,
         to_email: contact.email,
         from_email: sendPath === "warm" ? user.warm_sender_address : null,
+        ...(draftContext ? { draft_context: draftContext } : {}),
       };
 
   let status: "drafted" | "approved" = draft.status === "approved" ? "approved" : "drafted";
@@ -290,7 +324,7 @@ export async function updateDraft(_prev: DraftActionState, formData: FormData): 
   } else if (intent === "review") {
     const drafting = await getDraftingSubject(account.account_id, contact.id, draft.draft_context?.instruction ?? null);
     if (!drafting) return fail("That contact could not be found. Refresh the page.");
-    const result = await reviewDraft(drafting, user, sendPath, detail.collateral, {
+    const result = await reviewDraft(drafting, user, sendPath, mentioned, {
       subject: subjectText,
       body: bodyText,
     });
@@ -427,4 +461,34 @@ export async function stopSending(_prev: DraftActionState, formData: FormData): 
   const detail = await getDraft(draftId);
   if (detail) refresh(detail.account.account_id, draftId);
   return { error: null, notice: "Stopped. The email is back to ready and won't send." };
+}
+
+export type CollateralOption = { id: string; title: string; content_type: string; url: string };
+export type FindCollateralResult = { error: string | null; items: CollateralOption[] };
+
+/**
+ * "Add collateral" on a draft: collateral a client can be sent, matching a
+ * request, or suggested for this contact when the request is empty. Only the
+ * draft's author can ask. Adding it is the editor's job; saving is what records it.
+ */
+export async function findCollateralForDraft(draftId: string, query: string): Promise<FindCollateralResult> {
+  if (!UUID.test(draftId)) return { error: "That draft could not be found. Refresh the page.", items: [] };
+
+  const [user, detail] = await Promise.all([getCurrentUser(), getDraft(draftId)]);
+  if (!user) return { error: "Your session has ended. Sign in again.", items: [] };
+  if (!detail || detail.draft.sender_id !== user.id) {
+    return { error: "Only the person who wrote a draft can add collateral to it.", items: [] };
+  }
+
+  const request = String(query ?? "").trim().slice(0, 300);
+  const hits = request
+    ? (await searchLibrary({ query: request, skottQuery: request, shareableOnly: true, limit: 8 })).hits
+    : ((await getDraftingSubject(detail.account.account_id, detail.contact.id, null))?.collateral ?? []);
+
+  return {
+    error: null,
+    items: hits
+      .filter((hit) => hit.client_shareable && !hit.collateral_id.startsWith(SKOTT_ONLY_PREFIX))
+      .map((hit) => ({ id: hit.collateral_id, title: hit.title, content_type: hit.content_type, url: hit.asset_url })),
+  };
 }

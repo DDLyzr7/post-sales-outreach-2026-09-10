@@ -67,12 +67,16 @@ Every threshold is read from `app_policy`.
 | Natural-language collateral search | `src/app/(app)/collateral/page.tsx`, `supabase/migrations/20260910000300_collateral_search.sql` |
 | Claude reads the request into keywords, products, roles and content types | `src/lib/ai/collateral-search.ts` (Claude Opus 5, structured output) |
 | "Find collateral" for a specific contact | the contact rows on each account page |
+| Skott feed (library from Skott's MCP server, every 6 hours) | `src/lib/skott.ts`, `src/lib/jobs/skott.ts`, `npm run skott` |
+| Skott search first, then the library | `searchLibrary()` in `src/lib/db/collateral.ts` |
+| Collateral in emails as links; "Add collateral" on a draft | `src/lib/collateral-links.ts`, `src/components/draft-forms.tsx` |
+| What can go to a client | `app_policy.collateral_rules`, `supabase/migrations/20260918000100_skott_collateral.sql` |
 
 - **Works without Claude:** if `ANTHROPIC_API_KEY` is missing or the call fails, the page
-  falls back to a plain word search.
+  falls back to a plain word search. Without Skott, search uses the library's own copy.
 - **Nothing is tracked** when someone opens collateral.
-- **Still to come:** the Skott feed, and how collateral goes into emails, both wait on
-  Skott's API.
+- **Only public lyzr.ai case studies, blueprints, playbooks, templates and blog posts** can
+  go in a client email. The database refuses anything else in a draft.
 
 ## What Phase 4 delivers
 
@@ -394,10 +398,10 @@ first thing to run.
    id, so accounts pair by name or by `app_policy.cortex_sync.account_matches`. Still open:
    a shared id from the Cortex team.
 
-**Needed before Phase 3's Skott connector:**
+**Skott (connected 2026-09-18):**
 
-2. **Skott API docs and a key** — which endpoints list collateral, how items are tagged,
-   and how to authenticate.
+2. **Skott's `list_kb` stops at 100 items** in some sections; search fills the gaps. Set
+   `SKOTT_MCP_URL` and `SKOTT_API_KEY` in `.env.local`.
 
 **Needed before live sending:**
 
