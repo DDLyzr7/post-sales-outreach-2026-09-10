@@ -688,9 +688,18 @@ from here.)
       **https://post-sales-outreach.vercel.app** (also `post-sales-outreach-lyzr4.vercel.app`).
       Production is public; no deployment protection. `.vercel/` was already gitignored, and
       `vercel link` appended `VERCEL_OIDC_TOKEN` to `.env.local`.
-    - **Deployed from the working tree,** not from GitHub, so it includes entry 35's uncommitted
-      `ALLOW_PASSWORD_SIGN_IN` work. There is no Git integration on the project yet: a push to
-      `main` does **not** redeploy. Run `npx vercel deploy --prod --yes` for now.
+    - **The first deploy came from the working tree,** not from GitHub, so it included entry 35's
+      then-uncommitted `ALLOW_PASSWORD_SIGN_IN` work. That work is now committed (`8df23b2`) and
+      pushed.
+    - **Git integration connected** (2026-09-22, `vercel git connect`): pushes to `main` in
+      `DDLyzr7/post-sales-outreach-2026-09-10` deploy to production by themselves.
+      - **The SSH host alias broke the CLI.** `origin` was `git@github-post-sales:…`, which
+        Vercel can't parse. `origin` now records the canonical
+        `git@github.com:DDLyzr7/post-sales-outreach-2026-09-10.git`, and a repo-local
+        `url."git@github-post-sales:".insteadOf "git@github.com:"` keeps pushes on the
+        `~/.ssh/id_ed25519_post_sales` deploy key. `git remote -v` prints the alias (the rewrite
+        applied); `git config --get remote.origin.url` prints the canonical URL.
+      - `npx vercel deploy --prod --yes` still works for a deploy from the working tree.
     - **16 production env vars** set from `.env.local` with `vercel env add` (values never
       printed): both `NEXT_PUBLIC_SUPABASE_*`, the service-role key, Anthropic, `CRON_SECRET`,
       `MAILBOX_TOKEN_KEY`, the Microsoft client and tenant ids, Helix, Compass, Skott and Apollo.
