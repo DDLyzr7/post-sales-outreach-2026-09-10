@@ -58,9 +58,11 @@ from here.)
   sign-in as the lead returns 303 with a session cookie, and `/` then loads 200 as an admin
   with Team coverage and **no sample data** — the two-world RLS of entry 33 holds in
   production. Git integration proven by a push deploying on its own.
-- **Not verified:** any of it clicked in a browser, a real send, the `/api/jobs/*` endpoints
-  against the deployed URL, and `ALLOW_PASSWORD_SIGN_IN` unset on a deployed build (it was
-  tested locally against `next build` + `next start` in entry 35).
+- **The four jobs run green against the deployment** (entry 38), so the production
+  `/api/jobs/*` endpoints are verified.
+- **Not verified:** any of it clicked in a browser, a real send, and `ALLOW_PASSWORD_SIGN_IN`
+  unset on a deployed build (it was tested locally against `next build` + `next start` in
+  entry 35).
 - **Committed and pushed** at the user's request: `8df23b2`, `2e7fbc9`.
 
 ### Verification state (2026-09-18)
@@ -762,6 +764,29 @@ from here.)
     - **Separate from this CLI's own sign-in.** Claude Code here is on the user's personal
       Anthropic account; that is `/login` in the terminal and has no bearing on the app.
     - **Not done:** the user has not supplied a company key yet.
+
+38. **Jobs run against the deployment (2026-09-22).** Asked to run the jobs so reviewers see a
+    current sync, and then to point them at production rather than localhost.
+    - **How:** `APP_BASE_URL=https://post-sales-outreach.vercel.app npm run jobs`. An inline
+      variable overrides `node --env-file=.env.local` (checked), so `.env.local` is untouched and
+      still says `http://localhost:3001`. The same `CRON_SECRET` is set in both places, so the
+      job route accepts it.
+    - **All four returned 200,** which verifies the deployed `/api/jobs/*` endpoints:
+      - `send` — `dry_run`, nothing claimed. `track` — 0 mailboxes, none connected yet.
+      - `sync` — 55 Helix clients, 49 Compass accounts; **60 accounts, all updated, 0 created**;
+        241 engagements; 129 contacts updated, 0 created; **0 owners added, retired or pending**.
+        Steady state, so the Cortex sync has settled.
+      - `skott` — **1,015 listed, 302 client-shareable** (up from 1,011 and 299 on 18 Sep):
+        8 created, 1,007 updated, 4 retired.
+    - **Unchanged and still waiting on the user:** JP Morgan Chase and Neuralgo (GoML) have no
+      owner, and the same 13 Compass names are unresolved.
+    - **Pointing at production changes nothing about the data.** Both the local app and the
+      deployment write to the same Supabase project, so a sync from either is what reviewers see.
+      What it does buy is proof the deployed endpoints work, and independence from the dev server.
+    - **It still runs from this Mac.** If it stops, people can still sign in and see the last
+      synced data — that is persisted in Postgres. What stops is data getting fresher, and, once
+      sending goes live, **a queued email never leaving**. That is the real argument for Pro, not
+      sync freshness.
 
 **Priority order the user follows, with status (2026-09-13):**
 
