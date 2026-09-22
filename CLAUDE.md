@@ -50,6 +50,19 @@ phase's open questions before writing code that depends on them. (On 2026-09-13 
 asked for everything buildable in one pass; that was a one-off, so stop for review again
 from here.)
 
+### Verification state (2026-09-22)
+
+- **Vercel deploy** (entry 36): `tsc` and `eslint` pass; `next build` passes on Vercel's own
+  builders (three production builds, 20–47 s). Checked **against the live deployment**, not the
+  dev server: `/` 307s to `/login`, the login page shows both doors, a scripted password
+  sign-in as the lead returns 303 with a session cookie, and `/` then loads 200 as an admin
+  with Team coverage and **no sample data** — the two-world RLS of entry 33 holds in
+  production. Git integration proven by a push deploying on its own.
+- **Not verified:** any of it clicked in a browser, a real send, the `/api/jobs/*` endpoints
+  against the deployed URL, and `ALLOW_PASSWORD_SIGN_IN` unset on a deployed build (it was
+  tested locally against `next build` + `next start` in entry 35).
+- **Committed and pushed** at the user's request: `8df23b2`, `2e7fbc9`.
+
 ### Verification state (2026-09-18)
 
 - **Skott** (entry 31): `tsc`, `eslint`, `next build`, the SQL parse (17 files, plus the new
@@ -700,6 +713,8 @@ from here.)
         `~/.ssh/id_ed25519_post_sales` deploy key. `git remote -v` prints the alias (the rewrite
         applied); `git config --get remote.origin.url` prints the canonical URL.
       - `npx vercel deploy --prod --yes` still works for a deploy from the working tree.
+      - **Proven, not just configured:** pushing `2e7fbc9` produced a production deployment on
+        its own (22 s build, Ready), with no CLI deploy.
     - **16 production env vars** set from `.env.local` with `vercel env add` (values never
       printed): both `NEXT_PUBLIC_SUPABASE_*`, the service-role key, Anthropic, `CRON_SECRET`,
       `MAILBOX_TOKEN_KEY`, the Microsoft client and tenant ids, Helix, Compass, Skott and Apollo.
@@ -722,9 +737,31 @@ from here.)
       against the deployed URL.
     - **Feature list:** GV-05 built; **48 built, 0 planned, 0 waiting on input**. Republished at
       the same link (version 15), with the masthead and footnote dated 22 Sep.
+    - **Committed and pushed** at the user's request (2026-09-22), after `tsc` and `eslint`
+      passed and the tree was checked for secrets, `.env.local` and `comms-tracker/` files:
+      - `8df23b2` — entry 35's `ALLOW_PASSWORD_SIGN_IN` work, the login-page tidy-up, this file
+        and the feature list (6 files).
+      - `2e7fbc9` — the Git-integration note.
+      - Both fast-forward onto `origin/main`. `.vercel/` and `.env.local` stayed ignored.
     - **Still to do in the two dashboards:** add `https://post-sales-outreach.vercel.app/**` to
       Supabase Redirect URLs, and the mailbox redirect URI
       `https://post-sales-outreach.vercel.app/mailbox/callback` on the Azure app.
+
+37. **The app's Claude key belongs to the wrong account (raised by the user, 2026-09-22).**
+    Drafting, the draft review, collateral search and the people-search reader all run on
+    `ANTHROPIC_API_KEY` (`src/lib/ai/client.ts`), which per the 2026-09-10 decision is **Comms
+    Tracker's key, copied into `.env.local`** — so the spend lands on that account, not Lyzr's
+    company Anthropic org. It is now also set on Vercel production.
+    - **The swap, when the user has made a company key:** they paste it into `.env.local`
+      themselves (not into chat — the Helix, Compass, Skott and Apollo keys all came through
+      chat and are on the rotate list), then
+      `npx vercel env add ANTHROPIC_API_KEY production --force` and a redeploy. Confirm with one
+      Claude draft on a real account and check it bills the company org.
+    - **Nothing in the code changes.** The variable name and `src/lib/ai/client.ts` stay as they
+      are; only the value moves.
+    - **Separate from this CLI's own sign-in.** Claude Code here is on the user's personal
+      Anthropic account; that is `/login` in the terminal and has no bearing on the app.
+    - **Not done:** the user has not supplied a company key yet.
 
 **Priority order the user follows, with status (2026-09-13):**
 
@@ -781,6 +818,9 @@ Microsoft, and the four jobs don't run on a schedule.
   - **Apollo:** rotate the key (pasted in chat), and try one Find email on a real account.
   - **Review Phases 5–7:** run `npm run jobs` beside the dev server, send a ready email as
     Riya, and launch a broadcast as Dana. Everything is in test mode.
+  - **Company Claude key (entry 37):** make an `ANTHROPIC_API_KEY` in Lyzr's Anthropic org and
+    put it in `.env.local`; drafting currently bills Comms Tracker's account. Then say so, and
+    the Vercel value and a redeploy follow.
   - **Hosting (entry 36):** decide whether to put the Lyzr Vercel team on Pro. It's what
     scheduled jobs need, and Hobby is for non-commercial use, which this isn't.
   - **Add the deployed URL** where the other two dashboards expect it: Supabase → Redirect URLs
@@ -794,8 +834,9 @@ Microsoft, and the four jobs don't run on a schedule.
     change.
   - Decide on the live view leak.
 
-**Local servers:** Post-Sales Outreach is running on :3001. Run `npm run jobs` beside it so
-sends and broadcasts go out (in test mode).
+**Local servers:** Post-Sales Outreach is running on :3001, and is also live on Vercel (which
+needs no local server). Run `npm run jobs` beside it so sends and broadcasts go out (in test
+mode); the deployment has no cron, so nothing is scheduled there.
 Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
