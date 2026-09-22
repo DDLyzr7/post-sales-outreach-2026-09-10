@@ -20,9 +20,9 @@ its previous owner. It has its own `package.json`, Supabase project and conventi
 [the comms-tracker section](#comms-tracker--inherited-handover) at the bottom. Keep
 the two codebases apart, and don't carry either one's invariants across without asking.
 
-_Last updated 2026-09-18 (Skott, Apollo Find people, real users and owners)._
+_Last updated 2026-09-22 (Vercel deploy: all 48 features built)._
 
-## Status — all features built except Vercel hosting (47 of 48); real users and owners in; all awaiting review
+## Status — all 48 features built; live on Vercel; real users and owners in; all awaiting review
 
 The phases were re-sequenced on 2026-09-10, when the user added five features:
 collateral search, reporting, one-click Claude drafting, a per-user targets view and
@@ -43,6 +43,7 @@ global broadcast.
 | 7 — reporting: outreach consistency, account coverage, relevant material, broadcast results | **done, unreviewed** (2026-09-13) |
 | Track — integrations: Cortex sync (Helix: clients, projects, contacts; Compass: lifecycle, CSM, health, use cases, contacts), leadership enrichment | Cortex sync **built and run against live data** (2026-09-17, 59 real accounts); Apollo **connected** 2026-09-18: plain-language Find people, Find email, Email them |
 | P1 — Lyzr sign-in with Microsoft | built and migration pushed; waiting on the user's Azure and Supabase dashboard settings (open question 8) |
+| GV-05 — hosting | **done, unreviewed** (2026-09-22). Live at https://post-sales-outreach.vercel.app on the Lyzr team. No cron: the Hobby plan caps it at once a day, so jobs still run from a laptop |
 
 Build phase by phase. Complete one, stop for review, do not scaffold ahead. Surface a
 phase's open questions before writing code that depends on them. (On 2026-09-13 the user
@@ -641,12 +642,87 @@ from here.)
     - Committed `33e2846` with entry 32's Find email / Email them flow. The local server was
       then stopped at the user's request.
 
+**2026-09-22:**
+
+34. **Login page and a second admin.** Removed the "Sample users" card (the block listing
+    `pm@`/`cal@`/`csm@`/`lead@example.com` and the password hint) from
+    `src/app/login/page.tsx`. The "sample users, local only" divider and the password form
+    itself stay, so the sample sign-ins still work on localhost; only the printed list is
+    gone. `tsc` passes and the served page no longer mentions example.com.
+    - **Added `shekhar@lyzr.com` as an admin** (the user's call; lyzr.com over lyzr.ai).
+      Created with the service role, `email_confirm`, and `is_admin` set on `app_user`
+      directly, because `createUser` writes `app_metadata` after the insert (entry 33).
+      The password was appended to `~/Desktop/Post-Sales-Logins.csv` (mode 600, never
+      printed). **Verified:** signs in, `is_admin` true, sees 60 real accounts and no
+      sample data.
+    - **Real accounts are now 60,** not the 59 in entry 29 — a sync on 2026-09-18 added
+      Telefonica.
+    - Scratch scripts only; nothing added to the repo.
+
+35. **`ALLOW_PASSWORD_SIGN_IN` for the Vercel deploy.** The user chose an env flag over
+    finishing Microsoft sign-in first, so the deployment has a working door.
+    `passwordSignInEnabled()` (`src/lib/auth.ts`) now returns true for
+    `NODE_ENV=development` or the flag set to exactly `"true"`; anything else, including
+    an unset flag, leaves a deployed build Microsoft-only. The login divider now reads
+    "or sign in with a password" instead of "sample users, local only", which stopped
+    being true. Added to `.env.example`, unset.
+    - **Verified against a real `next build` + `next start`, not the dev server:** with no
+      flag the login page offers only Continue with Microsoft; with the flag the password
+      form renders and a scripted sign-in as `shekhar@lyzr.com` returns 303, sets the
+      session cookie and loads the dashboard as an admin (Team coverage present, no sample
+      data). **The server-side guard holds:** a valid captured action payload replayed
+      against a flag-off server is refused with no session cookie, so hiding the form is
+      not the only thing stopping it.
+    - **Not verified:** clicking it in a browser (no browser tooling this session), and
+      anything on Vercel — nothing has been deployed.
+    - **Vercel:** the `vercel@claude-plugins-official` plugin was installed at user scope
+      (`npx plugins add vercel/vercel-plugin --yes`); it needs a Claude Code restart, and
+      `npx vercel login` is interactive, so the user runs it.
+    - **Turn the flag off** once Microsoft sign-in is configured.
+    - **Not committed.**
+
+36. **Deployed to Vercel (GV-05) — the last feature.** The user ran `npx vercel login`, then
+    chose the **Lyzr team** (`lyzr4`) over a personal account, and **no cron for now** over
+    upgrading the plan.
+    - **Project:** `lyzr4/post-sales-outreach`, created by `vercel link`. Live at
+      **https://post-sales-outreach.vercel.app** (also `post-sales-outreach-lyzr4.vercel.app`).
+      Production is public; no deployment protection. `.vercel/` was already gitignored, and
+      `vercel link` appended `VERCEL_OIDC_TOKEN` to `.env.local`.
+    - **Deployed from the working tree,** not from GitHub, so it includes entry 35's uncommitted
+      `ALLOW_PASSWORD_SIGN_IN` work. There is no Git integration on the project yet: a push to
+      `main` does **not** redeploy. Run `npx vercel deploy --prod --yes` for now.
+    - **16 production env vars** set from `.env.local` with `vercel env add` (values never
+      printed): both `NEXT_PUBLIC_SUPABASE_*`, the service-role key, Anthropic, `CRON_SECRET`,
+      `MAILBOX_TOKEN_KEY`, the Microsoft client and tenant ids, Helix, Compass, Skott and Apollo.
+      Plus `ALLOW_PASSWORD_SIGN_IN=true` and `APP_BASE_URL=https://post-sales-outreach.vercel.app`
+      (set after the first deploy, then redeployed, so unsubscribe links are right).
+      **Not copied:** `SUPABASE_DB_URL`, `SUPABASE_DB_PASSWORD`, `SEED_USER_PASSWORD` (local
+      scripts only) and the still-empty `MICROSOFT_CLIENT_SECRET`.
+    - **No `vercel.json`, so no cron.** Hobby allows one run a day and **fails the deploy** on a
+      finer expression (per Vercel's cron docs). Send, track, sync and Skott still run from
+      `npm run jobs` on a laptop. Adding cron means putting the Lyzr team on Pro; Hobby is also
+      non-commercial-use only.
+    - **Verified against the live deployment:** `/` 307s to `/login`; the login page offers
+      Continue with Microsoft *and* the password form (the flag is read correctly in
+      production). A scripted sign-in as `deepankar.dimri@lyzr.com` returned **303 with a
+      session cookie**, and the dashboard loaded 200 as an admin with Team coverage and **no
+      sample data** — so the two-world RLS of entry 33 holds in production. A first attempt
+      with the wrong CSV column returned "Invalid login credentials", which also proved the
+      deployment reaches Supabase.
+    - **Not verified:** clicking through in a browser, a real send, and the jobs endpoints
+      against the deployed URL.
+    - **Feature list:** GV-05 built; **48 built, 0 planned, 0 waiting on input**. Republished at
+      the same link (version 15), with the masthead and footnote dated 22 Sep.
+    - **Still to do in the two dashboards:** add `https://post-sales-outreach.vercel.app/**` to
+      Supabase Redirect URLs, and the mailbox redirect URI
+      `https://post-sales-outreach.vercel.app/mailbox/callback` on the Azure app.
+
 **Priority order the user follows, with status (2026-09-13):**
 
 | Stage | Scope | Status |
 |---|---|---|
 | **P0** | Git repo for the root app; Supabase project, run it, review Phases 1–2; Comms Tracker leak fix; the answers | Repo and live Supabase **done**. User review of Phases 1–4 and the Comms Tracker housekeeping still open |
-| **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync waits on Krish. CI **built** 2026-09-13. Hosting on Vercel comes **last** |
+| **P1** | Cortex sync; customer-status source; Lyzr sign-in; deploy and CI | Microsoft sign-in **built**, but the dashboard settings are pending. Cortex sync **built** 2026-09-17. CI **built** 2026-09-13. Hosting on Vercel **done** 2026-09-22 |
 | **P2** | Skott connector; collateral search; collateral in emails | **Built** 2026-09-18 (Skott MCP feed, links in emails, Add collateral) |
 | **P3** | Claude drafting | **Built** 2026-09-11, awaiting review |
 | **P4** | Sending via connected mailboxes; enforced rules; unsubscribe; delivery status | **Built** 2026-09-13 in test mode. Live needs the Azure mailbox settings |
@@ -654,19 +730,22 @@ from here.)
 | **P6** | Reporting | **Built** 2026-09-13 |
 | **P7** | Compass; enrichment; Comms Tracker's future | Compass sync **built** 2026-09-17; Apollo **connected** 2026-09-18; Comms Tracker undecided |
 
-**Stopped for review after real users and owners (2026-09-18).** Only GV-05 (hosting) is left
-to build. The tool can't be used by the team yet: it runs on this Mac only, real people sign in
-with passwords on localhost, and sending is in test mode.
+**Stopped for review with everything built (2026-09-22).** All 48 features are in, and the app
+is reachable by the team at https://post-sales-outreach.vercel.app. Nothing is left to build.
+What's still not true of it: sending is in test mode, sign-in is by password rather than
+Microsoft, and the four jobs don't run on a schedule.
 - **Next when answers arrive:** owner emails for the unresolved Compass names (entry 30), and
   live sending once the Azure mailbox settings are in.
-- **Last:** Vercel hosting on the company account, with Vercel Cron calling `/api/jobs/send`,
-  `/api/jobs/track`, `/api/jobs/sync` and `/api/jobs/skott`.
+- **Scheduled jobs:** Vercel Cron on `/api/jobs/send`, `/api/jobs/track`, `/api/jobs/sync` and
+  `/api/jobs/skott` needs the Pro plan (Hobby allows one run a day, and a finer cron expression
+  fails the deploy). Until then run `npm run jobs` against the deployment.
 
 **Waiting on the user:**
 - **Post-Sales Outreach:**
   - **Sign-in:** switch on the Before User Created hook now (email sign-ups stay open until
     it is on), and add the rest of the Microsoft sign-in settings (open question 8).
-  - **Review in the browser** at http://localhost:3001 (start the server first). Real data:
+  - **Review in the browser** at https://post-sales-outreach.vercel.app (no server needed), or
+    at http://localhost:3001 (start the server first). Real data:
     sign in as `deepankar.dimri@lyzr.com` (the lead) with the password in
     `~/Desktop/Post-Sales-Logins.csv`. Sample data: `pm@example.com` / `PostSales!2026`.
     Untested by hand: Add collateral on a draft, Find email and Email them in Find people, and a
@@ -681,8 +760,9 @@ with passwords on localhost, and sending is in test mode.
   - **Owners (entry 30):** emails for the 13 unresolved Compass names (add them to
     `cortex_sync.people`); owners for JP Morgan Chase and Neuralgo (GoML); confirm Rijo as
     primary CSM on 19 accounts.
-  - **Real logins:** `~/Desktop/Post-Sales-Logins.csv` (19 people). Share each password only
-    with its owner, or keep them for your own review; they work on localhost only.
+  - **Real logins:** `~/Desktop/Post-Sales-Logins.csv` (19 people, plus shekhar@). Share each
+    password only with its owner, or keep them for your own review; since 2026-09-22 they also
+    work on the deployed site.
   - **Rotate** the Helix and Compass keys (pasted in chat).
   - **Check the first GitHub Actions run** of "Checks" on the repo's Actions tab.
   - **For live sending (open question 10):** on the Azure app, add the redirect URI
@@ -692,14 +772,21 @@ with passwords on localhost, and sending is in test mode.
   - **Apollo:** rotate the key (pasted in chat), and try one Find email on a real account.
   - **Review Phases 5–7:** run `npm run jobs` beside the dev server, send a ready email as
     Riya, and launch a broadcast as Dana. Everything is in test mode.
+  - **Hosting (entry 36):** decide whether to put the Lyzr Vercel team on Pro. It's what
+    scheduled jobs need, and Hobby is for non-commercial use, which this isn't.
+  - **Add the deployed URL** where the other two dashboards expect it: Supabase → Redirect URLs
+    `https://post-sales-outreach.vercel.app/**`, and the Azure app's mailbox redirect URI
+    `https://post-sales-outreach.vercel.app/mailbox/callback`.
+  - **`ALLOW_PASSWORD_SIGN_IN` is `true` on the deployment.** Every real owner's password now
+    works from the public internet. Clear it the moment Microsoft sign-in is on.
 - **Comms Tracker:**
   - Confirm the GitHub "Comms Tracker refresh" workflow is disabled.
   - OK to commit and push `comms-tracker/next.config.ts`. It's the only uncommitted
     change.
   - Decide on the live view leak.
 
-**Local servers:** none running. Post-Sales Outreach was stopped at the user's request on
-2026-09-18. Run `npm run jobs` beside it so sends and broadcasts go out (in test mode).
+**Local servers:** Post-Sales Outreach is running on :3001. Run `npm run jobs` beside it so
+sends and broadcasts go out (in test mode).
 Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
@@ -799,8 +886,11 @@ There is no local Postgres, Docker or psql on this machine, so SQL can't run loc
     - The Before User Created hook, `public.hook_restrict_sign_up`, checks
       `app_policy.sign_in_rules`: Microsoft allows lyzr.com and lyzr.ai, and password
       allows only example.com, the sample users. It fails closed.
-    - Password sign-in is refused outside `NODE_ENV=development` inside `signIn`
-      itself, not just hidden on the page.
+    - Password sign-in is refused inside `signIn` itself, not just hidden on the page.
+      Since 2026-09-22 it is allowed when `NODE_ENV=development` **or**
+      `ALLOW_PASSWORD_SIGN_IN` is exactly `"true"` (the flag fails closed). The flag is
+      on for the Vercel deployment only until Microsoft sign-in works (open question 8);
+      while it is on, every real owner's password is usable from the public internet.
 14. **Claude only chooses from lists it's given, and only on the server.**
     - `src/lib/ai/collateral-search.ts` constrains products, roles and content types to
       enums through structured output, and drops unknown product keys.

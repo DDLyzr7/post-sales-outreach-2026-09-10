@@ -1,12 +1,17 @@
 import { headers } from "next/headers";
 
 /**
- * The fictional sample users sign in with a password on localhost only. Every
- * deployed build is Microsoft-only, and the sign-in action checks this too, so
- * hiding the form is not the only thing stopping it.
+ * Password sign-in is on for local development, and otherwise only when
+ * ALLOW_PASSWORD_SIGN_IN is exactly "true" (2026-09-22, so the Vercel deployment
+ * has a working door before Microsoft sign-in is configured — open question 8).
+ *
+ * It fails closed: any other value, or no value, leaves a deployed build
+ * Microsoft-only. The sign-in action checks this too, so hiding the form is not
+ * the only thing stopping it. Turn the flag off once Microsoft sign-in works.
  */
 export function passwordSignInEnabled(): boolean {
-  return process.env.NODE_ENV === "development";
+  if (process.env.NODE_ENV === "development") return true;
+  return process.env.ALLOW_PASSWORD_SIGN_IN === "true";
 }
 
 /** Same-site paths only: "/team" is fine, "//evil.example" or "https://..." is not. */

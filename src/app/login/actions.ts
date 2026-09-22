@@ -7,7 +7,7 @@ import { passwordSignInEnabled, requestOrigin, safeNextPath } from "@/lib/auth";
 
 export type LoginState = { error: string | null };
 
-/** Password sign-in for the fictional sample users, on localhost only. */
+/** Password sign-in: local development, or a deployment with ALLOW_PASSWORD_SIGN_IN=true. */
 export async function signIn(_prev: LoginState, formData: FormData): Promise<LoginState> {
   if (!passwordSignInEnabled()) {
     return { error: "Sign in with your Lyzr Microsoft account." };

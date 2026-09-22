@@ -52,26 +52,13 @@ export default async function LoginPage({
             <>
               <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wide text-muted">
                 <span className="h-px flex-1 bg-line" />
-                sample users, local only
+                or sign in with a password
                 <span className="h-px flex-1 bg-line" />
               </div>
               <LoginForm next={nextPath} />
             </>
           ) : null}
         </div>
-
-        {showPassword ? (
-          <div className="mt-6 rounded-lg border border-line bg-surface-muted p-4 text-xs text-muted">
-            <p className="mb-2 font-medium text-foreground">Sample users</p>
-            <ul className="space-y-1 font-mono">
-              <li>pm@example.com &middot; Riya Kapoor (PM, 3 accounts)</li>
-              <li>cal@example.com &middot; Marcus Webb (CAL, 3 accounts)</li>
-              <li>csm@example.com &middot; Elena Ortiz (CSM, 3 accounts)</li>
-              <li>lead@example.com &middot; Dana Whitfield (admin, all 8)</li>
-            </ul>
-            <p className="mt-2">Password: the value of SEED_USER_PASSWORD in .env.local</p>
-          </div>
-        ) : null}
       </div>
     </main>
   );
