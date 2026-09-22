@@ -694,7 +694,7 @@ from here.)
       (`npx plugins add vercel/vercel-plugin --yes`); it needs a Claude Code restart, and
       `npx vercel login` is interactive, so the user runs it.
     - **Turn the flag off** once Microsoft sign-in is configured.
-    - **Not committed.**
+    - **Committed** in `8df23b2` (2026-09-22, entry 36), together with the deploy.
 
 36. **Deployed to Vercel (GV-05) — the last feature.** The user ran `npx vercel login`, then
     chose the **Lyzr team** (`lyzr4`) over a personal account, and **no cron for now** over
@@ -860,8 +860,11 @@ Microsoft, and the four jobs don't run on a schedule.
   - Decide on the live view leak.
 
 **Local servers:** Post-Sales Outreach is running on :3001, and is also live on Vercel (which
-needs no local server). Run `npm run jobs` beside it so sends and broadcasts go out (in test
-mode); the deployment has no cron, so nothing is scheduled there.
+needs no local server). A jobs runner is also going **against the deployment**, started as
+`APP_BASE_URL=https://post-sales-outreach.vercel.app npm run jobs` (entry 38) — it dies with the
+session or the laptop. The deployment has no cron, so nothing is scheduled there: while no runner
+is up, data stops refreshing and, once sending is live, a queued email will not leave. Signing in
+and reading the last synced data keep working regardless, because that lives in Postgres.
 Restart it with `npm run dev -- -p 3001`, and Comms Tracker with
 `cd comms-tracker && npm run dev`, which serves `http://localhost:3000/abm-tracker/`.
 
